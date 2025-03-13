@@ -1,6 +1,7 @@
 import gymnasium as gym
 from env.quad import QuadRateEnv
 import cv2
+from stable_baselines3 import PPO
 
 def test_custom_inverted_pendulum():
     # Create an instance of the custom environment
@@ -11,18 +12,23 @@ def test_custom_inverted_pendulum():
     done = False
     total_reward = 0
 
-    # Run the environment for 100 steps (or until termination)
-    for step in range(100):
-        env.render()  # Keep MuJoCo window open
-        print("Press any key to step... (ESC to exit)")
-        
-        key = cv2.waitKey(0)  # Waits for key press while keeping GUI active
-        if key == 27:  # ESC key to exit
-            break
-        # Random action for testing
-        action = env.action_space.sample()
+    model = PPO.load("ppo_quadrotor")
 
-        # Take a step in the environment
+    # Run the environment for 100 steps (or until termination)
+    for step in range(1000):
+        env.render()  # Keep MuJoCo window open
+        # print("Press any key to step... (ESC to exit)")
+        
+        # key = cv2.waitKey(0)  # Waits for key press while keeping GUI active
+        # if key == 27:  # ESC key to exit
+        #     break
+        # Random action for testing
+        # action = env.action_space.sample()
+
+        # # Take a step in the environment
+        # obs, reward, terminated, truncated, info = env.step(action)
+
+        action, _ = model.predict(obs, deterministic=True)  # Get the best action
         obs, reward, terminated, truncated, info = env.step(action)
 
         # Accumulate the reward
