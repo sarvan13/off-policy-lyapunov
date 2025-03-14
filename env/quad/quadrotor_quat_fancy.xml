@@ -22,7 +22,7 @@
     </asset>
 	<worldbody>
         <light directional='true' diffuse='.8 .8 .8' specular='0.3 0.3 0.3' pos='0 0 4.0' dir='0 -.15 -1'/>
-		<geom name="floor" pos="0 0 -4" size="2 2 .2" type="plane" material="MatPlane" conaffinity="1" rgba="1 1 1 1" condim="3"/>
+		<geom name="floor" pos="0 0 -4" size="4 4 .2" type="plane" material="MatPlane" conaffinity="1" rgba="1 1 1 1" condim="3"/>
 		<body name="quadrotor" pos="1 0 2">
 			<geom name="core" type="box" pos="0 0 0" quat = "1. 0. 0. 0" size="0.035 0.035 0.035"  rgba="1 1 1 0.7" mass = ".4"/>
 

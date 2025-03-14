@@ -50,7 +50,7 @@ model = PPO('MlpPolicy', env, n_steps=32*2048, learning_rate=2.5e-4, batch_size=
 
 # Train the model
 num_episodes = 1000
-num_steps = 5_000_000
+num_steps = 10_000_000
 model.learn(total_timesteps=num_steps, callback=reward_callback)
 
 # Close the environment
@@ -65,8 +65,8 @@ plt.title("Training Rewards for PPO on Quadrotor-v1")
 plt.grid(True)
 
 # Save the plot to a file
-plt.savefig('ppo_training_rewards.png')
+plt.savefig('ppo_traj_training_rewards.png')
 
 # Save the rewards and steps to a file
-np.savez('ppo_training_data.npz', rewards=reward_callback.episode_rewards, steps=reward_callback.steps)
-model.save("ppo_quadrotor")
+np.savez('ppo_traj_training_data.npz', rewards=reward_callback.episode_rewards, steps=reward_callback.steps)
+model.save("ppo_traj_quadrotor")

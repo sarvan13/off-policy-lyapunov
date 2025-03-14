@@ -66,7 +66,7 @@ class QuadRateEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self.observation_space = spaces.Box(low=obs_low, high=obs_high, dtype=np.float32)
         mujoco_env.MujocoEnv.__init__(
             self, 
-            'C:\\Users\\Sarvan\\Desktop\\School\\UVIC\\off-policy-lyapunov\\env\\quad\\quadrotor_quat_fancy.xml', 
+            'C:\\Users\\Sarvan\\Desktop\\School\\UVIC\\off-policy-lyapunov\\env\\quad\\quadrotor_quat.xml', 
             self.frame_skip, 
             observation_space=self.observation_space,
             **kwargs)
@@ -94,16 +94,13 @@ class QuadRateEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         lin_vel = ob[7:10]
         ang_vel = ob[10:13]
         reward_ctrl = - 1e-4 * np.sum(np.square(action))
-        # reward_position = -linalg.norm(self.reference_position[self.timestep] - pos) * 1e-1
-        # reward_linear_velocity = -linalg.norm(self.vd - lin_vel) * 1e-2
-        reward_position = -linalg.norm(pos) * 1e-1
-        reward_linear_velocity = -linalg.norm(lin_vel) * 1e-2
+        reward_position = -linalg.norm(self.reference_position[self.timestep] - pos) * 1e-1
+        reward_linear_velocity = -linalg.norm(self.vd - lin_vel) * 1e-2
         reward_angular_velocity = -linalg.norm(ang_vel) * 1e-3
         reward_alive = 1e-1
         reward = reward_ctrl+reward_position+reward_linear_velocity+reward_angular_velocity+reward_alive
-        terminated =  abs(pos[2]) >3 \
-                or abs(pos[0]) > 3.0 \
-                or abs(pos[1]) > 3.0
+        terminated =  linalg.norm(self.reference_position[self.timestep] - pos) > 3
+        
         truncated = self.timestep >= self.max_timesteps - 1
         # ob[0] = pos[0] - self.reference_position[self.timestep][0]
         # ob[1] = pos[1] - self.reference_position[self.timestep][1]
