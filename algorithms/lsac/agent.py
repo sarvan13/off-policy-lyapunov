@@ -8,7 +8,7 @@ from collections import deque, namedtuple
 import random
 
 class LSACAgent():
-    def __init__(self, state_dims, action_dims, max_action, alr=1e-4, qlr=3e-4, vlr=3e-4, llr=3e-4, clr=3e-4, batch_size=256,
+    def __init__(self, state_dims, action_dims, max_action, alr=1e-4, qlr=3e-4, vlr=3e-4, llr=3e-4, clr=3e-4, elr=3e-4, batch_size=256,
                  rewards_scale = 2, alpha = 0.2, gamma=1, tau=0.005, mem_length=1e5):
         self.actor = ActorNet(alr,state_dims, action_dims, max_action)
         self.q = QNet(qlr, state_dims, action_dims)
@@ -27,17 +27,20 @@ class LSACAgent():
         
         self.mem_length = mem_length
         self.replay_buffer = []
-        # self.data_point = namedtuple()
-        # self.replay_buffer = deque()
 
         self.gamma = gamma
         self.tau = tau
         self.alpha = alpha
         self.rewards_scale = rewards_scale
+
         beta = torch.tensor([10.0]).to(self.actor.device)
         self.log_beta = nn.Parameter(torch.tensor(torch.log(beta)))
         self.beta_optimizer = optim.Adam([self.log_beta], lr=clr)
         self.beta = torch.exp(self.log_beta.detach())
+
+        self.entropy_target = -action_dims
+        self.log_entropy_coeff = nn.Parameter(torch.log(torch.tensor(1.0))).to(self.actor.device)
+        self.entropy_optim = optim.Adam([self.log_entropy_coeff], lr=elr)
 
         self.loss = nn.MSELoss()
 
@@ -111,6 +114,14 @@ class LSACAgent():
         next_states = torch.tensor(next_states, dtype=torch.float).to(self.actor.device)
         dones = torch.tensor(dones, dtype=torch.float).to(self.actor.device)
 
+        # Update the entropy coefficient
+        self.entropy_optim.zero_grad()
+        entropy_coeff = torch.exp(self.log_entropy_coeff).detach()
+        sampled_actions, log_probs = self.actor.sample(states, reparameterize=False)
+        entropy_loss = -self.log_entropy_coeff * (log_probs + self.entropy_target).detach().mean()
+        entropy_loss.backward()
+        self.entropy_optim.step()
+
         # Train Value Network
         # error = V(s) - E(Q(s,a) - log(pi(a|s)))
         self.value.optimizer.zero_grad()
@@ -131,13 +142,12 @@ class LSACAgent():
         next_actions, _ = self.actor.sample(next_states, reparameterize=True)
         eq_action, _ = self.actor.forward(self.equilibrium_state)
         lie_derivative = (self.lyapunov.forward(next_states, next_actions) - self.lyapunov.forward(states, actions))/self.dt + 0.1
-        l_equi = self.lyapunov.forward(self.equilibrium_state, eq_action)
+        # l_equi = self.lyapunov.forward(self.equilibrium_state, eq_action)
         lyapunov_error = self.beta*torch.max(torch.tensor(0), lie_derivative).mean() #+ l_equi**2
         
-        actor_loss = (log_probs.view(-1) - q_actor).mean()
+        actor_loss = (entropy_coeff*(log_probs.view(-1) + self.entropy_target) - q_actor).mean()
         loss = actor_loss + lyapunov_error
-        actor_loss.backward()
-        lyapunov_error.backward()
+        loss.backward()
         self.actor.optimizer.step()
 
         # Train Q Network

@@ -7,7 +7,7 @@ from collections import deque, namedtuple
 import random
 
 class SACAgent():
-    def __init__(self, state_dims, action_dims, max_action, alr=1e-4, qlr=3e-4, vlr=3e-4, batch_size=256,
+    def __init__(self, state_dims, action_dims, max_action, alr=1e-4, qlr=3e-4, vlr=3e-4, elr=3e-4, batch_size=256,
                  rewards_scale = 2, alpha = 0.2, gamma=1, tau=0.005, mem_length=1e5, path='data\sac\models', name_root='sac-quad'):
         self.actor = ActorNet(alr,state_dims, action_dims, max_action, save_dir=path, name=name_root + '-actor.pth')
         self.q = QNet(qlr, state_dims, action_dims, save_dir=path, name=name_root + '-q.pth')
@@ -19,8 +19,10 @@ class SACAgent():
         
         self.mem_length = mem_length
         self.replay_buffer = []
-        # self.data_point = namedtuple()
-        # self.replay_buffer = deque()
+
+        self.entropy_target = -action_dims
+        self.log_entropy_coeff = nn.Parameter(torch.log(torch.tensor(1.0))).to(self.actor.device)
+        self.entropy_optim = optim.Adam([self.log_entropy_coeff], lr=elr)
 
         self.gamma = gamma
         self.tau = tau
@@ -65,11 +67,19 @@ class SACAgent():
         next_states = torch.tensor(next_states, dtype=torch.float).to(self.actor.device)
         dones = torch.tensor(dones, dtype=torch.float).to(self.actor.device)
 
+        # Update the entropy coefficient
+        self.entropy_optim.zero_grad()
+        entropy_coeff = torch.exp(self.log_entropy_coeff).detach()
+        sampled_actions, log_probs = self.actor.sample(states, reparameterize=False)
+        entropy_loss = -self.log_entropy_coeff * (log_probs + self.entropy_target).detach().mean()
+        entropy_loss.backward()
+        self.entropy_optim.step()
+
         # Train Value Network
         # error = V(s) - E(Q(s,a) - log(pi(a|s)))
         self.value.optimizer.zero_grad()
         v = self.value.forward(states).view(-1)
-        sampled_actions, log_probs = self.actor.sample(states, reparameterize=False)
+        # sampled_actions, log_probs = self.actor.sample(states, reparameterize=False)
         q_v = self.q.forward(states, sampled_actions).view(-1)
         target_v = q_v - log_probs.view(-1)
         v_loss = 0.5*self.loss(v, target_v.detach())
@@ -81,7 +91,7 @@ class SACAgent():
         self.actor.optimizer.zero_grad()
         sampled_actions, log_probs = self.actor.sample(states, reparameterize=True)
         q_actor = self.q.forward(states, sampled_actions).view(-1)
-        actor_loss = (log_probs.view(-1) - q_actor).mean()
+        actor_loss = (entropy_coeff*(log_probs.view(-1) + self.entropy_target) - q_actor).mean()
         actor_loss.backward()
         self.actor.optimizer.step()
 

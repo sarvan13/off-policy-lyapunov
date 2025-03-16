@@ -26,6 +26,7 @@ class ActorNet(nn.Module):
         self.device = ('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.to(self.device)
         self.max_action = torch.tensor(max_action).to(self.device)
+
     
     def forward(self, state):
         layer1 = torch.relu(self.fc1(state))
