@@ -64,9 +64,11 @@ class QuadRateEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         obs_high = np.inf * np.ones(13, dtype=np.float32)
         self.frame_skip = 5
         self.observation_space = spaces.Box(low=obs_low, high=obs_high, dtype=np.float32)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        xml_path = os.path.join(current_dir, "quadrotor_quat.xml")
         mujoco_env.MujocoEnv.__init__(
             self, 
-            'C:\\Users\\Sarvan\\Desktop\\School\\UVIC\\off-policy-lyapunov\\env\\quad\\quadrotor_quat.xml', 
+            xml_path, 
             self.frame_skip, 
             observation_space=self.observation_space,
             **kwargs)
