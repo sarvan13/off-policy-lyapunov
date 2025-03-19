@@ -39,7 +39,7 @@ class LSACAgent():
         self.beta = torch.exp(self.log_beta.detach())
 
         self.entropy_target = -action_dims
-        self.log_entropy_coeff = nn.Parameter(torch.log(torch.tensor(1.0))).to(self.actor.device)
+        self.log_entropy_coeff = nn.Parameter(torch.tensor(0.0, requires_grad=True, device=self.actor.device))
         self.entropy_optim = optim.Adam([self.log_entropy_coeff], lr=elr)
 
         self.loss = nn.MSELoss()
