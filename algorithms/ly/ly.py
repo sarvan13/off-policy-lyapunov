@@ -54,7 +54,7 @@ class PPOMemory:
 
 class ActorNet(nn.Module):
     def __init__(self, state_dims, action_dims, max_action, lr=3e-4, fc1_dims=256, fc2_dims=256, 
-                 reparam_noise=1e-6, name='actor2-batch.pth', save_dir='tmp\\ppo'):
+                 reparam_noise=1e-6, name='actor.pth', save_dir='data/ly'):
         super(ActorNet, self).__init__()
         self.lr = lr
         self.state_dims = state_dims
@@ -129,7 +129,7 @@ class ActorNet(nn.Module):
 
 class CriticNetwork(nn.Module):
     def __init__(self, input_dims, alpha, fc1_dims=256, fc2_dims=256,
-            chkpt_dir='tmp\\ppo', name='critic2-batch.pth'):
+            chkpt_dir='data/ly', name='critic.pth'):
         super(CriticNetwork, self).__init__()
 
         self.checkpoint_file = os.path.join(chkpt_dir, name)
@@ -158,20 +158,22 @@ class CriticNetwork(nn.Module):
 
 class LYAgent:
     def __init__(self, n_actions, input_dims, max_action, dt, gamma=0.99, alpha=0.0003, gae_lambda=0.95,
-            policy_clip=0.2, batch_size=64, n_epochs=10):
+            policy_clip=0.2, batch_size=64, n_epochs=10, normalize_advantage=True, beta = 0.5, entropy_coeff = 0.001,
+            target_kl = None):
         self.gamma = gamma
         self.policy_clip = policy_clip
         self.n_epochs = n_epochs
         self.gae_lambda = gae_lambda
         self.input_dims = input_dims
         self.dt = dt
-        self.beta = 0.5
-        self.entropy_coeff = 0.0
-        self.target_kl = 0.01
+        self.beta = beta
+        self.entropy_coeff = entropy_coeff
+        self.target_kl = target_kl
+        self.normalize_advantage = normalize_advantage
 
         self.actor = ActorNet(input_dims,n_actions, max_action, lr=alpha)
         self.critic = CriticNetwork(input_dims, alpha)
-        self.lyapunov = CriticNetwork(input_dims, alpha, name='lyapunov2-batch.pth')
+        self.lyapunov = CriticNetwork(input_dims, alpha, name='lyapunov.pth')
         self.memory = PPOMemory(batch_size)
        
     def remember(self, state, action, probs, vals, reward, next_state, done):
@@ -251,7 +253,6 @@ class LYAgent:
                     a_t += discount*(reward_arr[k] + self.gamma*values[k+1]*\
                             (1-int(dones_arr[k])) - values[k])
                     discount *= self.gamma*self.gae_lambda
-                # advantage[t] = a_t
                 advantage[t] = a_t
             advantage = T.tensor(advantage).to(self.actor.device)
 
@@ -270,6 +271,9 @@ class LYAgent:
                 prob_ratio = new_probs.exp() / old_probs.exp()
                 #prob_ratio = (new_probs - old_probs).exp()
                 adjusted_advantage = (1- self.beta) * advantage[batch] + self.beta * T.min(T.tensor(0), -(self.lyapunov(next_states) - self.lyapunov(states)))
+                if self.normalize_advantage:
+                    # Normalize the adjusted advantages
+                    adjusted_advantage = (adjusted_advantage - adjusted_advantage.mean()) / (adjusted_advantage.std() + 1e-8)
                 # adjusted_advantage = advantage[batch]
                 weighted_probs = adjusted_advantage * prob_ratio
                 weighted_clipped_probs = T.clamp(prob_ratio, 1-self.policy_clip,
