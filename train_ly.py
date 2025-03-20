@@ -1,12 +1,10 @@
 import gymnasium as gym
 import numpy as np
 from algorithms.ly.ly import LYAgent
-from env import QuadRateEnv
-import torch as T
-import copy
+from env.quad import QuadStillEnv
 
 if __name__ == '__main__':
-    env = gym.make('Quadrotor-v1')
+    env = gym.make('Quadrotor-Still-v1')
     N = 32*2048
     batch_size = 256
     n_epochs = 10
@@ -17,7 +15,6 @@ if __name__ == '__main__':
                     max_action=env.action_space.high, entropy_coeff=0.001)
     n_steps = 20_000_000
 
-    figure_file = 'plots/cartpole.png'
     score_history = []
     actor_loss = []
     critic_loss = []
@@ -28,11 +25,13 @@ if __name__ == '__main__':
     avg_score = 0
     best_score = -2000
     step = 0
+    ep_count = 0
 
     while step < n_steps:
         observation, _ = env.reset()
         done = False
         score = 0
+        ep_count += 1
         while not done:
             action, prob, val = agent.choose_action(observation)
             observation_, reward, terminated, truncated, info = env.step(action)
@@ -55,7 +54,7 @@ if __name__ == '__main__':
         avg_score = np.mean(score_history[-100:])
 
         if step % 10_000 == 0:
-            print('episode', i, 'score %.1f' % score, 'avg score %.1f' % avg_score,
+            print('episode', ep_count, 'score %.1f' % score, 'avg score %.1f' % avg_score,
                     'time_steps', step, 'learning_steps', learn_iters)
         
         if avg_score > best_score:
