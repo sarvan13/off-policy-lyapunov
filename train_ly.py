@@ -2,10 +2,11 @@ import gymnasium as gym
 import numpy as np
 from algorithms.ly.ly import LYAgent
 from env.quad import QuadStillEnv
+import time
 
 if __name__ == '__main__':
     env = gym.make('Quadrotor-Still-v1')
-    N = 32*2048
+    N = 2048
     batch_size = 256
     n_epochs = 10
     alpha = 0.0003
@@ -13,7 +14,9 @@ if __name__ == '__main__':
                     alpha=alpha, n_epochs=n_epochs, dt=env.unwrapped.dt,
                     input_dims=env.observation_space.shape[0],
                     max_action=env.action_space.high, entropy_coeff=0.001)
-    n_steps = 20_000_000
+    n_steps = 20_000
+    init_time = time.time()
+    curr_time = time.time() - init_time
 
     score_history = []
     actor_loss = []
@@ -26,6 +29,7 @@ if __name__ == '__main__':
     best_score = -2000
     step = 0
     ep_count = 0
+    verbose_flag = False
 
     while step < n_steps:
         observation, _ = env.reset()
@@ -41,11 +45,14 @@ if __name__ == '__main__':
             agent.remember(observation, action, prob, val, reward, observation_, done)
             if step % N == 0:
                 l_loss = agent.train_lyapunov()
-                a_loss, c_loss = agent.learn()
+                # a_loss, c_loss = agent.learn()
                 # actor_loss.append(a_loss)
                 # critic_loss.append(c_loss)
                 # lyapunov_loss.append(l_loss)
                 learn_iters += 10
+            if step % 10_000 == 0:
+                verbose_flag = True
+                curr_time = time.time() - init_time
             observation = observation_
             agent.actor.decay_covariance(n_steps)
         
@@ -53,9 +60,10 @@ if __name__ == '__main__':
         # std.append(agent.actor.cov_var[0].item())
         avg_score = np.mean(score_history[-100:])
 
-        if step % 10_000 == 0:
+        if verbose_flag:
             print('episode', ep_count, 'score %.1f' % score, 'avg score %.1f' % avg_score,
-                    'time_steps', step, 'learning_steps', learn_iters)
+                    'time_steps', step, 'learning_steps', learn_iters, 'time', curr_time)
+            verbose_flag = False
         
         if avg_score > best_score:
             best_score = avg_score
