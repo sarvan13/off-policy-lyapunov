@@ -3,9 +3,9 @@ import numpy as np
 from algorithms.ly.ly import LYAgent
 import matplotlib.pyplot as plt
 import torch as T
-from env.quad import QuadRateEnv
+from env.quad import QuadStillEnv
 
-env = gym.make('Quadrotor-v1', render_mode='human')
+env = gym.make('Quadrotor-Still-v1', render_mode='human')
 N = 32*2048
 batch_size = 256
 n_epochs = 10
