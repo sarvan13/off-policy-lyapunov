@@ -7,18 +7,23 @@ from torch.distributions.normal import Normal
 from torch.distributions import MultivariateNormal
 
 class PPOMemory:
-    def __init__(self, batch_size):
+    def __init__(self, length, batch_size):
         self.states = []
         self.probs = []
         self.vals = []
+        self.advantages = []
         self.actions = []
         self.rewards = []
         self.next_states = []
+        self.next_vals = []
         self.dones = []
+        self.size = length
 
         self.batch_size = batch_size
 
     def generate_batches(self):
+        # if len(self.advantages) != len(self.rewards):
+        #     AssertionError("Must call calculate_advantages ONCE before generating batches")
         n_states = len(self.states)
         batch_start = np.arange(0, n_states, self.batch_size)
         indices = np.arange(n_states, dtype=np.int64)
@@ -32,16 +37,49 @@ class PPOMemory:
                 np.array(self.rewards),\
                 np.array(self.next_states),\
                 np.array(self.dones),\
+                np.array(self.advantages),\
                 batches
 
-    def store_memory(self, state, action, probs, vals, reward, next_state, done):
+    def store_memory(self, state, action, probs, vals, reward, next_state, next_val, done):
         self.states.append(state)
         self.actions.append(action)
         self.probs.append(probs)
         self.vals.append(vals)
         self.rewards.append(reward)
         self.next_states.append(next_state)
+        self.next_vals.append(next_val)
         self.dones.append(done)
+    
+    def calculate_advantages(self, gamma, gae_lambda):
+        last_gae_lam = 0
+        self.advantages = np.zeros_like(self.rewards, dtype=np.float32)
+        for step in reversed(range(self.size)):
+            if step == self.size - 1:
+                next_non_terminal = 1.0 - self.dones[step]
+                next_values = self.next_vals[step]
+            else:
+                next_non_terminal = 1.0 - self.dones[step + 1]
+                next_values = self.vals[step + 1]
+            delta = self.rewards[step] + gamma * next_values * next_non_terminal - self.vals[step]
+            last_gae_lam = delta + gamma * gae_lambda * next_non_terminal * last_gae_lam
+            self.advantages[step] = last_gae_lam
+
+
+        # # calculate advantages
+        # for t in range(len(self.rewards)):
+        #     discount = 1
+        #     a_t = 0
+        #     for k in range(t, len(self.rewards)):
+        #         if k == len(self.rewards) - 1:
+        #             a_t += discount*(self.rewards[k] - self.vals[k])
+        #         else:
+        #             a_t += discount*(self.rewards[k] + gamma*self.vals[k+1]*\
+        #                     (1-int(self.dones[k])) - self.vals[k])
+        #         discount *= gamma*gae_lambda
+        #         # if self.dones[k]:
+        #         #     break 
+        #     self.advantages.append(a_t)
+
 
     def clear_memory(self):
         self.states = []
@@ -157,7 +195,7 @@ class CriticNetwork(nn.Module):
         self.load_state_dict(T.load(self.checkpoint_file))
 
 class LYAgent:
-    def __init__(self, n_actions, input_dims, max_action, dt, gamma=0.99, alpha=0.0003, gae_lambda=0.95,
+    def __init__(self, n_actions, input_dims, max_action, dt, update_freq, gamma=0.99, alpha=0.0003, gae_lambda=0.95,
             policy_clip=0.2, batch_size=64, n_epochs=10, normalize_advantage=True, beta = 0.5, entropy_coeff = 0.001,
             target_kl = None):
         self.gamma = gamma
@@ -174,10 +212,18 @@ class LYAgent:
         self.actor = ActorNet(input_dims,n_actions, max_action, lr=alpha)
         self.critic = CriticNetwork(input_dims, alpha)
         self.lyapunov = CriticNetwork(input_dims, alpha, name='lyapunov.pth')
-        self.memory = PPOMemory(batch_size)
+        self.memory = PPOMemory(update_freq, batch_size)
        
     def remember(self, state, action, probs, vals, reward, next_state, done):
-        self.memory.store_memory(state, action, probs, vals, reward, next_state, done)
+        if done:
+            next_val = self.critic(T.tensor(next_state, dtype=T.float).to(self.actor.device))
+        else:
+            # We only use next val in calculating the advantage
+            # It is only needed for the last step in the episode
+            # we set other instances to 0 to avoid repetitive forward pass 
+            next_val = T.tensor(0.0, dtype=T.float).to(self.actor.device)
+        next_val = T.squeeze(next_val).item()
+        self.memory.store_memory(state, action, probs, vals, reward, next_state, next_val, done)
 
     def save_models(self):
         print('... saving models ...')
@@ -208,7 +254,7 @@ class LYAgent:
         for i in range(self.n_epochs):
             loss_arr = []
             state_arr, action_arr, old_prob_arr, vals_arr,\
-            reward_arr, next_state_arr, dones_arr, batches = \
+            reward_arr, next_state_arr, dones_arr, advantages, batches = \
                     self.memory.generate_batches()
             
             for batch in batches:
@@ -233,29 +279,33 @@ class LYAgent:
     def learn(self):
         actor_losses = []
         critic_losses = []
+        adv_flag = False
+        advantage = np.zeros(len(self.memory.rewards), dtype=np.float32)
         for _ in range(self.n_epochs):
             approx_kl_divs = []
             mean_actor_loss = []
             mean_critic_loss = []
             continue_training = True
             state_arr, action_arr, old_prob_arr, vals_arr,\
-            reward_arr, next_state_arr, dones_arr, batches = \
+            reward_arr, next_state_arr, dones_arr, adv_arr, batches = \
                     self.memory.generate_batches()
 
             values = vals_arr
 
-            # calculate advantages
-            advantage = np.zeros(len(reward_arr), dtype=np.float32)
-            for t in range(len(reward_arr)-1):
-                discount = 1
-                a_t = 0
-                for k in range(t, len(reward_arr)-1):
-                    a_t += discount*(reward_arr[k] + self.gamma*values[k+1]*\
-                            (1-int(dones_arr[k])) - values[k])
-                    discount *= self.gamma*self.gae_lambda
-                advantage[t] = a_t
-            advantage = T.tensor(advantage).to(self.actor.device)
-
+            if adv_flag:
+                # calculate advantages
+                for t in range(len(reward_arr)-1):
+                    discount = 1
+                    a_t = 0
+                    for k in range(t, len(reward_arr)-1):
+                        a_t += discount*(reward_arr[k] + self.gamma*values[k+1]*\
+                                (1-int(dones_arr[k])) - values[k])
+                        discount *= self.gamma*self.gae_lambda
+                    advantage[t] = a_t
+                advantage = T.tensor(advantage).to(self.actor.device)
+                adv_flag = False
+            
+            advantage = T.tensor(adv_arr).to(self.actor.device)
             values = T.tensor(values).to(self.actor.device)
             for batch in batches:
                 states = T.tensor(state_arr[batch], dtype=T.float).to(self.actor.device)
@@ -315,5 +365,8 @@ class LYAgent:
             critic_losses.append(np.mean(mean_critic_loss))
 
         self.memory.clear_memory()        
-        return np.mean(actor_losses), np.mean(critic_losses)       
+        return np.mean(actor_losses), np.mean(critic_losses)     
+
+    def calculate_advantages(self):
+        self.memory.calculate_advantages(self.gamma, self.gae_lambda)  
 

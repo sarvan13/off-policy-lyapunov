@@ -5,16 +5,17 @@ from env.quad import QuadStillEnv
 import time
 
 if __name__ == '__main__':
-    env = gym.make('Quadrotor-Still-v1')
+    env = gym.make('Pendulum-v1')
     N = 2048
-    batch_size = 256
+    batch_size = 64
     n_epochs = 10
     alpha = 0.0003
     agent = LYAgent(n_actions=env.action_space.shape[0], batch_size=batch_size, 
                     alpha=alpha, n_epochs=n_epochs, dt=env.unwrapped.dt,
                     input_dims=env.observation_space.shape[0],
-                    max_action=env.action_space.high, entropy_coeff=0.001)
-    n_steps = 20_000
+                    max_action=env.action_space.high, update_freq=N,
+                    entropy_coeff=0.001)
+    n_steps = 200_000
     init_time = time.time()
     curr_time = time.time() - init_time
 
@@ -44,8 +45,9 @@ if __name__ == '__main__':
             score += reward
             agent.remember(observation, action, prob, val, reward, observation_, done)
             if step % N == 0:
+                agent.calculate_advantages()
                 l_loss = agent.train_lyapunov()
-                # a_loss, c_loss = agent.learn()
+                a_loss, c_loss = agent.learn()
                 # actor_loss.append(a_loss)
                 # critic_loss.append(c_loss)
                 # lyapunov_loss.append(l_loss)
