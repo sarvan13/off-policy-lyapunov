@@ -2,6 +2,7 @@ import gymnasium as gym
 import matplotlib.pyplot as plt
 import numpy as np
 from algorithms.sac.agent import SACAgent
+from algorithms.lsac.agent import LSACAgent
 
 def train_inverted_pendulum(modelType):
     # Create an instance of the custom environment
@@ -14,8 +15,11 @@ def train_inverted_pendulum(modelType):
     
     if modelType == "sac":
         agent = SACAgent(env.observation_space.shape[0], env.action_space.shape[0], env.action_space.high)
+    elif modelType == "lsac":
+        agent = LSACAgent(env.observation_space.shape[0], env.action_space.shape[0], env.action_space.high, dt=env.unwrapped.dt)
     else:
         raise ValueError("Invalid model type")
+    agent.save()
 
     max_num_episodes = 1000
     max_episode_length = 200
@@ -39,9 +43,16 @@ def train_inverted_pendulum(modelType):
         state, _ = env.reset()
         
         for j in range(episode_steps):
+            if modelType == "lsac":
+                agent.learn_lyapunov()
             agent.train()
 
         print(f"Episode {k} - Cost: {episode_cost}")
+        if modelType == "lsac":
+            print(f"Beta: {agent.beta.item()}")
+    
+    env.close()
+    agent.save()
 
 if __name__ == "__main__":
-    train_inverted_pendulum("sac")
+    train_inverted_pendulum("lsac")

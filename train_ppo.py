@@ -1,6 +1,6 @@
 import gymnasium as gym
 import numpy as np
-from algorithms.ly.ly import LYAgent
+from algorithms.ppo.ppo import PPOAgent
 from env.quad import QuadStillEnv
 import time
 
@@ -11,12 +11,12 @@ if __name__ == '__main__':
     batch_size = 64
     n_epochs = 10
     alpha = 0.0003
-    agent = LYAgent(n_actions=env.action_space.shape[0], batch_size=batch_size, 
-                    alpha=alpha, n_epochs=n_epochs, dt=env.unwrapped.dt,
+    agent = PPOAgent(n_actions=env.action_space.shape[0], batch_size=batch_size, 
+                    alpha=alpha, n_epochs=n_epochs,
                     input_dims=env.observation_space.shape[0],
                     max_action=env.action_space.high, update_freq=N,
-                    entropy_coeff=0.001)
-    n_steps = 200_000
+                    entropy_coeff=0.001, save_dir='data\\pendulum\\ppo')
+    n_steps = 400_000
     init_time = time.time()
     curr_time = time.time() - init_time
 
@@ -43,7 +43,6 @@ if __name__ == '__main__':
             agent.remember(observation, action, prob, val, reward, observation_, done)
             if step % N == 0:
                 agent.calculate_advantages()
-                l_loss = agent.train_lyapunov()
                 a_loss, c_loss = agent.learn()
                 learn_iters += 10
             if step % 10_000 == 0:
@@ -64,4 +63,4 @@ if __name__ == '__main__':
             best_score = avg_score
             agent.save_models()
 
-    np.save('ly-rewards.npy', score_history)
+    np.save('ppo-reward-batch.npy', score_history)
