@@ -3,12 +3,19 @@ import numpy as np
 from algorithms.ly.ly import LYAgent
 from env.quad import QuadStillEnv
 import time
+import argparse
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Train LYAgent with command line arguments')
+    parser.add_argument('--N', type=int, default=2048, help='Update frequency')
+    parser.add_argument('--n_steps', type=int, default=200_000, help='Number of steps')
+    parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
+    args = parser.parse_args()
+
     # env = gym.make('Quadrotor-Still-v1')
     env = gym.make('Pendulum-v1')
-    N = 2048
-    batch_size = 64
+    N = args.N
+    batch_size = args.batch_size
     n_epochs = 10
     alpha = 0.0003
     agent = LYAgent(n_actions=env.action_space.shape[0], batch_size=batch_size, 
@@ -16,7 +23,7 @@ if __name__ == '__main__':
                     input_dims=env.observation_space.shape[0],
                     max_action=env.action_space.high, update_freq=N,
                     entropy_coeff=0.001)
-    n_steps = 200_000
+    n_steps = args.n_steps
     init_time = time.time()
     curr_time = time.time() - init_time
 
