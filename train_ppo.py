@@ -36,7 +36,8 @@ if __name__ == '__main__':
         ep_count += 1
         while not done:
             action, prob, val = agent.choose_action(observation)
-            observation_, reward, terminated, truncated, info = env.step(action)
+            clipped_action = np.clip(action, env.action_space.low, env.action_space.high)
+            observation_, reward, terminated, truncated, info = env.step(clipped_action)
             done = terminated or truncated
             step += 1
             score += reward
@@ -49,14 +50,14 @@ if __name__ == '__main__':
                 verbose_flag = True
                 curr_time = time.time() - init_time
             observation = observation_
-            agent.actor.decay_covariance(n_steps)
+            # agent.actor.decay_covariance(n_steps)
         
         score_history.append(score)
         avg_score = np.mean(score_history[-100:])
 
         if verbose_flag:
             print('episode', ep_count, 'score %.1f' % score, 'avg score %.1f' % avg_score,
-                    'time_steps', step, 'learning_steps', learn_iters, 'time', curr_time)
+                    'time_steps', step, 'learning_steps', learn_iters, 'std', agent.actor.log_std.exp().item(),'time', curr_time)
             verbose_flag = False
         
         if avg_score > best_score:

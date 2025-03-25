@@ -89,15 +89,19 @@ class ActorNet(nn.Module):
         self.fc1 = nn.Linear(self.state_dims, self.fc1_dims)
         self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
         self.mu = nn.Linear(self.fc2_dims, self.action_dims)
-        # self.log_sigma = nn.Linear(self.fc2_dims, self.action_dims)
+
+        self.log_std_init = 0.0
+        self.log_std = nn.Parameter(T.ones(self.action_dims, dtype=T.float32) * self.log_std_init, requires_grad=True)
 
         self.optimizer = optim.Adam(self.parameters(), lr=self.lr)
         self.device = ('cuda:0' if T.cuda.is_available() else 'cpu')
         self.max_action = T.tensor(max_action).to(self.device)
-        self.initial_cov_var = T.full(size=(self.action_dims,), fill_value=0.5)
-        self.cov_var = T.full(size=(self.action_dims,), fill_value=0.5)
-        self.final_cov_var = 0.2
-        self.cov_mat = T.diag(self.initial_cov_var).to(self.device)
+
+        # self.initial_cov_var = T.full(size=(self.action_dims,), fill_value=0.5)
+        # self.cov_var = T.full(size=(self.action_dims,), fill_value=0.5)
+        # self.final_cov_var = 0.2
+        # self.cov_mat = T.diag(self.initial_cov_var).to(self.device)
+
         self.to(self.device)
     
     def forward(self, state):
@@ -109,6 +113,11 @@ class ActorNet(nn.Module):
 
         return mean
     
+    @property
+    def cov_mat(self):
+        """Dynamically compute the covariance matrix based on the current log_std."""
+        return T.diag(self.log_std.exp()**2).to(self.device)
+
     def sample(self, state, reparameterize=True):
         mean = self.forward(state)
         normal = MultivariateNormal(mean, self.cov_mat)
@@ -131,16 +140,11 @@ class ActorNet(nn.Module):
         mean = self.forward(state)
         normal = MultivariateNormal(mean, self.cov_mat)
 
-        # tanh_action = action / self.max_action
-        # sampled_action = T.atanh(tanh_action)
-        # log_prob = normal.log_prob(sampled_action) - T.log(self.max_action*(1 - tanh_action.pow(2)) + self.reparam_noise)
-        # return log_prob.sum(dim=1, keepdim=True)
-
         return normal.log_prob(action)
     
-    def decay_covariance(self, total_episodes):
-        self.cov_var -= (self.initial_cov_var - self.final_cov_var) / total_episodes
-        self.cov_mat = T.diag(self.cov_var).to(self.device)
+    # def decay_covariance(self, total_episodes):
+    #     self.cov_var -= (self.initial_cov_var - self.final_cov_var) / total_episodes
+    #     self.cov_mat = T.diag(self.cov_var).to(self.device)
 
     def save_checkpoint(self):
         T.save(self.state_dict(), self.save_path)
@@ -260,10 +264,11 @@ class PPOAgent:
                 new_probs = self.actor.get_log_prob(states, actions)
                 prob_ratio = new_probs.exp() / old_probs.exp()
                 adjusted_advantage = advantages
-                if self.normalize_advantage:
-                    # Normalize the adjusted advantages
-                    adjusted_advantage = (adjusted_advantage - adjusted_advantage.mean()) / (adjusted_advantage.std() + 1e-8)
-                    
+                with T.no_grad():
+                    if self.normalize_advantage:
+                        # Normalize the adjusted advantages
+                        adjusted_advantage = (adjusted_advantage - adjusted_advantage.mean()) / (adjusted_advantage.std() + 1e-8)
+                        
                 weighted_probs = adjusted_advantage * prob_ratio
                 weighted_clipped_probs = T.clamp(prob_ratio, 1-self.policy_clip,
                         1+self.policy_clip)*adjusted_advantage
