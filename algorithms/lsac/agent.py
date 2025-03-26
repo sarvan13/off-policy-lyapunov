@@ -8,8 +8,8 @@ from collections import deque, namedtuple
 import random
 
 class LSACAgent():
-    def __init__(self, state_dims, action_dims, max_action, alr=1e-4, qlr=3e-4, vlr=3e-4, llr=3e-4, clr=3e-4, elr=3e-4, batch_size=256,
-                 rewards_scale = 2, alpha = 0.2, gamma=1, tau=0.005, mem_length=1e5):
+    def __init__(self, state_dims, action_dims, max_action, dt, alr=1e-4, qlr=3e-4, vlr=3e-4, llr=3e-4, clr=3e-4, elr=3e-4, batch_size=256,
+                 rewards_scale = 1, alpha = 0.2, gamma=1, tau=0.005, mem_length=1e5):
         self.actor = ActorNet(alr,state_dims, action_dims, max_action)
         self.q = QNet(qlr, state_dims, action_dims)
         self.value = ValueNet(vlr, state_dims)
@@ -18,7 +18,7 @@ class LSACAgent():
         self.value_target.load_state_dict(self.value.state_dict())
         self.state_dims = state_dims
         self.action_dims = action_dims
-        self.dt = 0.05
+        self.dt = dt
         self.equilibrium_state = torch.tensor([np.array([np.cos(0), np.sin(0), 0])], dtype=torch.float).to(self.actor.device)
         #self.equilibrium_state = -self.equilibrium_state
         # self.equilibrium_action = torch.tensor(torch.zeros(action_dims), dtype=torch.float, requires_grad=True).to(self.actor.device)
@@ -141,7 +141,8 @@ class LSACAgent():
 
         next_actions, _ = self.actor.sample(next_states, reparameterize=True)
         eq_action, _ = self.actor.forward(self.equilibrium_state)
-        lie_derivative = (self.lyapunov.forward(next_states, next_actions) - self.lyapunov.forward(states, actions))/self.dt + 0.1
+        org_lie_derivative = (self.lyapunov.forward(next_states, next_actions) - self.lyapunov.forward(states, actions))/self.dt
+        lie_derivative = org_lie_derivative + 0.1
         # l_equi = self.lyapunov.forward(self.equilibrium_state, eq_action)
         lyapunov_error = self.beta*torch.max(torch.tensor(0), lie_derivative).mean() #+ l_equi**2
         
@@ -162,10 +163,10 @@ class LSACAgent():
         q_loss.backward()
         self.q.optimizer.step()
 
-        # beta_loss = -self.log_beta*(lyapunov_error.detach())
-        # self.beta_optimizer.zero_grad()
-        # beta_loss.backward()
-        # self.beta_optimizer.step()
+        beta_loss = -self.log_beta*(org_lie_derivative.detach())
+        self.beta_optimizer.zero_grad()
+        beta_loss.backward()
+        self.beta_optimizer.step()
 
         self.beta = torch.exp(self.log_beta) 
 
