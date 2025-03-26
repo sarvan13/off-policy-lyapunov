@@ -19,6 +19,7 @@ def train_inverted_pendulum(modelType):
         agent = LSACAgent(env.observation_space.shape[0], env.action_space.shape[0], env.action_space.high, dt=env.unwrapped.dt)    
     else:
         raise ValueError("Invalid model type")
+    agent.save()
 
     max_num_episodes = 1000
     max_episode_length = 200
@@ -46,7 +47,12 @@ def train_inverted_pendulum(modelType):
                 agent.learn_lyapunov()
             agent.train()
 
-        print(f"Episode {k} - Cost: {episode_cost} - Beta: {agent.beta}")
+        print(f"Episode {k} - Cost: {episode_cost}")
+        if modelType == "lsac":
+            print(f"Beta: {agent.beta.item()}")
+    
+    env.close()
+    agent.save()
 
 if __name__ == "__main__":
     train_inverted_pendulum("lsac")

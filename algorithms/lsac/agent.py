@@ -9,12 +9,12 @@ import random
 
 class LSACAgent():
     def __init__(self, state_dims, action_dims, max_action, dt, alr=1e-4, qlr=3e-4, vlr=3e-4, llr=3e-4, clr=3e-4, elr=3e-4, batch_size=256,
-                 rewards_scale = 1, alpha = 0.2, gamma=1, tau=0.005, mem_length=1e5):
-        self.actor = ActorNet(alr,state_dims, action_dims, max_action)
-        self.q = QNet(qlr, state_dims, action_dims)
-        self.value = ValueNet(vlr, state_dims)
-        self.value_target = ValueNet(vlr, state_dims)
-        self.lyapunov = LyapunovNet(llr, state_dims, action_dims)
+                 rewards_scale = 1, alpha = 0.2, gamma=1, tau=0.005, mem_length=1e5, save_dir="data/pendulum/lsac"):
+        self.actor = ActorNet(alr,state_dims, action_dims, max_action, save_dir=save_dir)
+        self.q = QNet(qlr, state_dims, action_dims, save_dir=save_dir)
+        self.value = ValueNet(vlr, state_dims, save_dir=save_dir)
+        self.value_target = ValueNet(vlr, state_dims, save_dir=save_dir)
+        self.lyapunov = LyapunovNet(llr, state_dims, action_dims, save_dir=save_dir)
         self.value_target.load_state_dict(self.value.state_dict())
         self.state_dims = state_dims
         self.action_dims = action_dims
@@ -163,7 +163,7 @@ class LSACAgent():
         q_loss.backward()
         self.q.optimizer.step()
 
-        beta_loss = -self.log_beta*(org_lie_derivative.detach())
+        beta_loss = -self.log_beta*(org_lie_derivative.detach().mean())
         self.beta_optimizer.zero_grad()
         beta_loss.backward()
         self.beta_optimizer.step()

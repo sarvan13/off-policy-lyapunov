@@ -64,7 +64,6 @@ class PPOMemory:
             last_gae_lam = delta + gamma * gae_lambda * next_non_terminal * last_gae_lam
             self.advantages[step] = last_gae_lam
 
-
     def clear_memory(self):
         self.states = []
         self.probs = []
@@ -76,7 +75,7 @@ class PPOMemory:
 
 class ActorNet(nn.Module):
     def __init__(self, state_dims, action_dims, max_action, lr=3e-4, fc1_dims=256, fc2_dims=256, 
-                 reparam_noise=1e-6, name='actor.pth', save_dir='data\\ly'):
+                 reparam_noise=1e-6, name='actor.pth', save_dir='data\\ppo'):
         super(ActorNet, self).__init__()
         self.lr = lr
         self.state_dims = state_dims
@@ -90,15 +89,19 @@ class ActorNet(nn.Module):
         self.fc1 = nn.Linear(self.state_dims, self.fc1_dims)
         self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
         self.mu = nn.Linear(self.fc2_dims, self.action_dims)
-        # self.log_sigma = nn.Linear(self.fc2_dims, self.action_dims)
+
+        self.log_std_init = 0.0
+        self.log_std = nn.Parameter(T.ones(self.action_dims, dtype=T.float32) * self.log_std_init, requires_grad=True)
 
         self.optimizer = optim.Adam(self.parameters(), lr=self.lr)
         self.device = ('cuda:0' if T.cuda.is_available() else 'cpu')
         self.max_action = T.tensor(max_action).to(self.device)
-        self.initial_cov_var = T.full(size=(self.action_dims,), fill_value=0.5)
-        self.cov_var = T.full(size=(self.action_dims,), fill_value=0.5)
-        self.final_cov_var = 0.2
-        self.cov_mat = T.diag(self.initial_cov_var).to(self.device)
+
+        # self.initial_cov_var = T.full(size=(self.action_dims,), fill_value=0.5)
+        # self.cov_var = T.full(size=(self.action_dims,), fill_value=0.5)
+        # self.final_cov_var = 0.2
+        # self.cov_mat = T.diag(self.initial_cov_var).to(self.device)
+
         self.to(self.device)
     
     def forward(self, state):
@@ -110,6 +113,11 @@ class ActorNet(nn.Module):
 
         return mean
     
+    @property
+    def cov_mat(self):
+        """Dynamically compute the covariance matrix based on the current log_std."""
+        return T.diag(self.log_std.exp()**2).to(self.device)
+
     def sample(self, state, reparameterize=True):
         mean = self.forward(state)
         normal = MultivariateNormal(mean, self.cov_mat)
@@ -132,16 +140,11 @@ class ActorNet(nn.Module):
         mean = self.forward(state)
         normal = MultivariateNormal(mean, self.cov_mat)
 
-        # tanh_action = action / self.max_action
-        # sampled_action = T.atanh(tanh_action)
-        # log_prob = normal.log_prob(sampled_action) - T.log(self.max_action*(1 - tanh_action.pow(2)) + self.reparam_noise)
-        # return log_prob.sum(dim=1, keepdim=True)
-
         return normal.log_prob(action)
     
-    def decay_covariance(self, total_episodes):
-        self.cov_var -= (self.initial_cov_var - self.final_cov_var) / total_episodes
-        self.cov_mat = T.diag(self.cov_var).to(self.device)
+    # def decay_covariance(self, total_episodes):
+    #     self.cov_var -= (self.initial_cov_var - self.final_cov_var) / total_episodes
+    #     self.cov_mat = T.diag(self.cov_var).to(self.device)
 
     def save_checkpoint(self):
         T.save(self.state_dict(), self.save_path)
@@ -151,10 +154,10 @@ class ActorNet(nn.Module):
 
 class CriticNetwork(nn.Module):
     def __init__(self, input_dims, alpha, fc1_dims=256, fc2_dims=256,
-            chkpt_dir='data\\ly', name='critic.pth'):
+            save_dir='data\\ppo', name='critic.pth'):
         super(CriticNetwork, self).__init__()
 
-        self.checkpoint_file = os.path.join(chkpt_dir, name)
+        self.checkpoint_file = os.path.join(save_dir, name)
         self.critic = nn.Sequential(
                 nn.Linear(input_dims, fc1_dims),
                 nn.ReLU(),
@@ -178,24 +181,23 @@ class CriticNetwork(nn.Module):
     def load_checkpoint(self):
         self.load_state_dict(T.load(self.checkpoint_file))
 
-class LYAgent:
-    def __init__(self, n_actions, input_dims, max_action, dt, update_freq, gamma=0.99, alpha=0.0003, gae_lambda=0.95,
+class PPOAgent:
+    def __init__(self, n_actions, input_dims, max_action, update_freq, gamma=0.99, alpha=0.0003, gae_lambda=0.95,
             policy_clip=0.2, batch_size=64, n_epochs=10, normalize_advantage=True, beta = 0.5, entropy_coeff = 0.001,
-            target_kl = None):
+            target_kl = None, save_dir='data\\ppo'):
         self.gamma = gamma
         self.policy_clip = policy_clip
         self.n_epochs = n_epochs
         self.gae_lambda = gae_lambda
         self.input_dims = input_dims
-        self.dt = dt
         self.beta = beta
         self.entropy_coeff = entropy_coeff
         self.target_kl = target_kl
         self.normalize_advantage = normalize_advantage
 
-        self.actor = ActorNet(input_dims,n_actions, max_action, lr=alpha)
-        self.critic = CriticNetwork(input_dims, alpha)
-        self.lyapunov = CriticNetwork(input_dims, alpha, name='lyapunov.pth')
+        self.actor = ActorNet(input_dims,n_actions, max_action, lr=alpha, save_dir=save_dir)
+        self.critic = CriticNetwork(input_dims, alpha, save_dir=save_dir)
+        self.lyapunov = CriticNetwork(input_dims, alpha, save_dir=save_dir,  name='lyapunov.pth')
         self.memory = PPOMemory(update_freq, batch_size)
        
     def remember(self, state, action, probs, vals, reward, next_state, done):
@@ -233,33 +235,6 @@ class LYAgent:
 
         return action, probs, value
     
-    def train_lyapunov(self):
-        lyapunov_loss = []
-        for i in range(self.n_epochs):
-            loss_arr = []
-            state_arr, action_arr, old_prob_arr, vals_arr,\
-            reward_arr, next_state_arr, dones_arr, advantages, batches = \
-                    self.memory.generate_batches()
-            
-            for batch in batches:
-                states = T.tensor(state_arr[batch], dtype=T.float).to(self.actor.device)
-                next_states = T.tensor(next_state_arr[batch], dtype=T.float).to(self.actor.device)
-
-                lyapunov_values = self.lyapunov(states)
-                lie_derivative = (self.lyapunov(next_states) - lyapunov_values) / self.dt
-                equilibrium_lyapunov = self.lyapunov(T.zeros(self.input_dims).to(self.actor.device))
-
-                loss = T.max(T.tensor(0), -lyapunov_values).mean() + T.max(T.tensor(0), lie_derivative).mean() + equilibrium_lyapunov**2
-
-                self.lyapunov.optimizer.zero_grad()
-                loss.backward()
-                self.lyapunov.optimizer.step()       
-                loss_arr.append(loss.item())
-            
-            lyapunov_loss.append(np.mean(loss_arr))
-        
-        return np.mean(lyapunov_loss)
-
     def learn(self):
         actor_losses = []
         critic_losses = []
@@ -288,11 +263,12 @@ class LYAgent:
 
                 new_probs = self.actor.get_log_prob(states, actions)
                 prob_ratio = new_probs.exp() / old_probs.exp()
-                adjusted_advantage = (1- self.beta) * advantages + self.beta * T.min(T.tensor(0), -(self.lyapunov(next_states) - self.lyapunov(states)/self.dt))
-                if self.normalize_advantage:
-                    # Normalize the adjusted advantages
-                    adjusted_advantage = (adjusted_advantage - adjusted_advantage.mean()) / (adjusted_advantage.std() + 1e-8)
-                    
+                adjusted_advantage = advantages
+                with T.no_grad():
+                    if self.normalize_advantage:
+                        # Normalize the adjusted advantages
+                        adjusted_advantage = (adjusted_advantage - adjusted_advantage.mean()) / (adjusted_advantage.std() + 1e-8)
+                        
                 weighted_probs = adjusted_advantage * prob_ratio
                 weighted_clipped_probs = T.clamp(prob_ratio, 1-self.policy_clip,
                         1+self.policy_clip)*adjusted_advantage
