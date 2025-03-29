@@ -194,6 +194,7 @@ class PPOAgent:
         self.entropy_coeff = entropy_coeff
         self.target_kl = target_kl
         self.normalize_advantage = normalize_advantage
+        self.max_grad_norm = 0.5
 
         self.actor = ActorNet(input_dims,n_actions, max_action, lr=alpha, save_dir=save_dir)
         self.critic = CriticNetwork(input_dims, alpha, save_dir=save_dir)
@@ -296,6 +297,8 @@ class PPOAgent:
                 self.actor.optimizer.zero_grad()
                 self.critic.optimizer.zero_grad()
                 total_loss.backward()
+                nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
+                nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
                 self.actor.optimizer.step()
                 self.critic.optimizer.step()
 
