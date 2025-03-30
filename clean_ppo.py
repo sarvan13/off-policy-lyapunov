@@ -13,6 +13,7 @@ import tyro
 from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 from typing import Callable
+from collections import deque
 
 from env.quad.quad_rotor_still import QuadStillEnv
 
@@ -229,6 +230,9 @@ if __name__ == "__main__":
     next_obs, _ = envs.reset(seed=args.seed)
     next_obs = torch.Tensor(next_obs).to(device)
     next_done = torch.zeros(args.num_envs).to(device)
+
+    episode_rewards = deque(maxlen=50)
+    episode_count = 0
  
 
     for iteration in range(1, args.num_iterations + 1):
@@ -258,10 +262,15 @@ if __name__ == "__main__":
             
             # returns = np.array([info["reward"] for info in infos])
 
-            if next_done:
-                episode_return = infos["episode"]["r"]
-                print(f"global_step={global_step}, episode_return={episode_return}")
-                writer.add_scalar("charts/episode_return", episode_return, global_step)
+            for i, done in enumerate(next_done):
+                if done:
+                    episode_return = infos["episode"]["r"][i]
+                    episode_rewards.append(episode_return)  # Store final reward
+                    episode_count += 1
+
+                    if episode_count % 50 == 0:
+                        print(f"Episodes Completed={episode_count}, Average Reward={np.mean(episode_rewards)}")
+                        writer.add_scalar("charts/episode_return", np.mean(episode_rewards), episode_count)
 
             if "final_info" in infos:
                 for info in infos["final_info"]:

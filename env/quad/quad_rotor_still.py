@@ -127,8 +127,8 @@ class QuadStillEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         if terminated:
             reward = self.avg_rwd / (1-self.gamma)*2#-13599.99
         if self.log_cnt == 1e4:
-            print("x={},y={},z={}\n".format(pos[0], pos[1], pos[2]))
-            print("thrust={}, dx={}, dy={}, dz={}".format(action[0], action[1], action[2], action[3]))
+            print("x={},y={},z={}".format(pos[0], pos[1], pos[2]))
+            print("thrust={}, dx={}, dy={}, dz={} \n".format(action[0], action[1], action[2], action[3]))
             self.log_cnt = 0
         else:
             self.log_cnt = self.log_cnt + 1
