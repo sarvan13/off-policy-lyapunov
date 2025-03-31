@@ -8,7 +8,7 @@ from collections import deque, namedtuple
 import random
 
 class LSACAgent():
-    def __init__(self, state_dims, action_dims, max_action, dt, alr=1e-4, qlr=3e-4, vlr=3e-4, llr=3e-4, clr=3e-4, elr=3e-4, batch_size=256,
+    def __init__(self, state_dims, action_dims, max_action, dt, equilibrium_state, alr=1e-4, qlr=3e-4, vlr=3e-4, llr=3e-4, clr=3e-4, elr=3e-4, batch_size=256,
                  rewards_scale = 1, alpha = 0.2, gamma=1, tau=0.005, mem_length=1e5, save_dir="data/pendulum/lsac"):
         self.actor = ActorNet(alr,state_dims, action_dims, max_action, save_dir=save_dir)
         self.q = QNet(qlr, state_dims, action_dims, save_dir=save_dir)
@@ -19,9 +19,9 @@ class LSACAgent():
         self.state_dims = state_dims
         self.action_dims = action_dims
         self.dt = dt
-        self.equilibrium_state = torch.tensor([np.array([np.cos(0), np.sin(0), 0])], dtype=torch.float).to(self.actor.device)
-        #self.equilibrium_state = -self.equilibrium_state
-        # self.equilibrium_action = torch.tensor(torch.zeros(action_dims), dtype=torch.float, requires_grad=True).to(self.actor.device)
+        self.equilibrium_state = equilibrium_state.to(self.actor.device)
+        # self.equilibrium_state = torch.tensor([np.array([np.cos(0), np.sin(0), 0])], dtype=torch.float).to(self.actor.device)
+        # self.equilibrium_state = torch.zeros((1, state_dims), dtype=torch.float).to(self.actor.device)
 
         self.max_action = max_action
         
