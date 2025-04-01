@@ -8,11 +8,11 @@ import random
 
 class SACAgent():
     def __init__(self, state_dims, action_dims, max_action, alr=1e-4, qlr=3e-4, vlr=3e-4, elr=3e-4, batch_size=256,
-                 rewards_scale = 2, alpha = 0.2, gamma=1, tau=0.005, mem_length=1e5, path='data\sac\models', name_root='sac-quad'):
+                 rewards_scale = 2, alpha = 0.2, gamma=1, tau=0.005, mem_length=1e5, path='data/sac/models', name_root='sac-quad'):
         self.actor = ActorNet(alr,state_dims, action_dims, max_action, save_dir=path, name=name_root + '-actor.pth')
         self.q = QNet(qlr, state_dims, action_dims, save_dir=path, name=name_root + '-q.pth')
         self.value = ValueNet(vlr, state_dims, save_dir=path, name=name_root + '-value.pth')
-        self.value_target = ValueNet(vlr, state_dims)
+        self.value_target = ValueNet(vlr, state_dims, save_dir=path, name=name_root + '-vtarg.pth')
         self.value_target.load_state_dict(self.value.state_dict())
 
         self.max_action = max_action
