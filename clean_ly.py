@@ -99,8 +99,8 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
         env = gym.wrappers.FlattenObservation(env)  # deal with dm_control's Dict observation space
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.ClipAction(env)
-        env = gym.wrappers.NormalizeObservation(env)
-        env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10), env.observation_space)
+       # env = gym.wrappers.NormalizeObservation(env)
+       # env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10), env.observation_space)
         env = gym.wrappers.NormalizeReward(env, gamma=gamma)
         env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
         return env
@@ -236,7 +236,7 @@ if __name__ == "__main__":
     agent = Agent(envs).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
-    lyapunov = Lyapunov(envs.single_observation_space.shape[0], args.learning_rate)
+    lyapunov = Lyapunov(envs.single_observation_space.shape[0], args.learning_rate).to(device)
     dt = envs.envs[0].unwrapped.dt
 
     # ALGO Logic: Storage setup
@@ -282,9 +282,10 @@ if __name__ == "__main__":
             next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
             next_done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
-            obs_[step] = torch.tensor(next_obs).to(device).view(-1)
+            # obs_[step] = torch.tensor(next_obs).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
-            
+            obs_[step] = next_obs
+
             # returns = np.array([info["reward"] for info in infos])
 
             for i, done in enumerate(next_done):
