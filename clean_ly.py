@@ -14,6 +14,7 @@ from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 from typing import Callable
 from collections import deque
+from gymnasium.wrappers import NormalizeObservation
 
 from env.quad.quad_rotor_still import QuadStillEnv
 
@@ -99,8 +100,8 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
         env = gym.wrappers.FlattenObservation(env)  # deal with dm_control's Dict observation space
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.ClipAction(env)
-       # env = gym.wrappers.NormalizeObservation(env)
-       # env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10), env.observation_space)
+        env = gym.wrappers.NormalizeObservation(env)
+        env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10), env.observation_space)
         env = gym.wrappers.NormalizeReward(env, gamma=gamma)
         env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
         return env
@@ -336,6 +337,19 @@ if __name__ == "__main__":
 
         # Optimize Lyapunov network
         np.random.shuffle(b_inds)
+        # calculate equilibrium state based on normalization
+        env = envs.envs[0]
+        while isinstance(env, gym.Wrapper):
+            if isinstance(env, NormalizeObservation):
+                mean = env.obs_rms.mean
+                var = env.obs_rms.var
+                epsilon = env.epsilon
+                break
+            env = env.env
+
+        eq_obs_raw = np.zeros(envs.single_observation_space.shape[0])
+        eq_obs = (eq_obs_raw  - mean) / np.sqrt(var + epsilon)
+        eq_obs = torch.tensor(eq_obs, dtype=torch.float).to(device)
 
         for start in range(0, args.batch_size, args.minibatch_size):
                 end = start + args.minibatch_size
@@ -343,7 +357,7 @@ if __name__ == "__main__":
 
                 l_vals = lyapunov.forward(b_obs[mb_inds])
                 l_lie = (lyapunov.forward(b_next_obs[mb_inds]) - l_vals) / dt
-                l_eq = lyapunov.forward(torch.zeros(envs.single_observation_space.shape[0]).to(device))
+                l_eq = lyapunov.forward(eq_obs)
 
                 l_loss = torch.max(torch.tensor(0), - l_vals).mean() + torch.max(torch.tensor(0), l_lie).mean() + l_eq**2
 
