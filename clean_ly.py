@@ -434,8 +434,9 @@ if __name__ == "__main__":
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
     if args.save_model:
-        model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
+        model_path = f"runs/{run_name}/{args.exp_name}.ly_agent"
         torch.save(agent.state_dict(), model_path)
+        torch.save(lyapunov.state_dict(), model_path.replace(".ly_agent", ".ly_lyapunov"))
         print(f"model saved to {model_path}")
 
         # episodic_returns = evaluate(
