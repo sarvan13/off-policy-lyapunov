@@ -43,7 +43,7 @@ class Args:
     """the environment id of the task"""
     total_timesteps: int = 10_000
     """total timesteps of the experiments"""
-    num_envs: int = 8
+    num_envs: int = 1
     """the number of parallel game environments"""
     buffer_size: int = int(1e6)
     """the replay memory buffer size"""
@@ -262,19 +262,19 @@ poetry run pip install "stable_baselines3==2.0.0a1"
 
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
-        if "final_info" in infos:
-            for info in infos["final_info"]:
-                if info is not None:
-                    print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
-                    writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
-                    writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
-                    break
+        # if "final_info" in infos:
+        #     for info in infos["final_info"]:
+        #         if info is not None:
+        #             print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
+        #             writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
+        #             writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+        #             break
 
         # TRY NOT TO MODIFY: save data to reply buffer; handle `final_observation`
         real_next_obs = next_obs.copy()
         for idx, trunc in enumerate(truncations):
             if trunc:
-                real_next_obs[idx] = infos["final_observation"][idx]
+                real_next_obs[idx] = obs[idx]
         rb.add(obs, real_next_obs, actions, rewards, terminations, infos)
 
         # TRY NOT TO MODIFY: CRUCIAL step easy to overlook
