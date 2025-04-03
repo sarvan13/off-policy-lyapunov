@@ -41,7 +41,7 @@ class Args:
     # Algorithm specific arguments
     env_id: str = "Quadrotor-Still-v1"
     """the environment id of the task"""
-    total_timesteps: int = 10_000
+    total_timesteps: int = 1_000_000
     """total timesteps of the experiments"""
     num_envs: int = 1
     """the number of parallel game environments"""
@@ -275,7 +275,10 @@ poetry run pip install "stable_baselines3==2.0.0a1"
         for idx, trunc in enumerate(truncations):
             if trunc:
                 real_next_obs[idx] = obs[idx]
-        rb.add(obs, real_next_obs, actions, rewards, terminations, infos)
+        # rb.add(obs, real_next_obs, actions, rewards, terminations, infos)
+        rb.add(obs, real_next_obs, actions, rewards, next_done, infos)
+
+
 
         # TRY NOT TO MODIFY: CRUCIAL step easy to overlook
         obs = next_obs
