@@ -78,7 +78,7 @@ class Args:
     """the maximum norm for the gradient clipping"""
     target_kl: float = None
     """the target KL divergence threshold"""
-    lyapunov_weight: float = 0.5
+    lyapunov_weight: float = 10.0
     """Beta value of Lyapunov Lagrange Multiplier"""
 
     # to be filled in runtime
@@ -240,6 +240,10 @@ if __name__ == "__main__":
 
     lyapunov = Lyapunov(envs.single_observation_space.shape[0] + envs.single_action_space.shape[0], args.learning_rate).to(device)
     dt = envs.envs[0].unwrapped.dt
+
+    log_beta = nn.Parameter(torch.log(torch.tensor([args.lyapunov_weight], dtype=torch.float, device=device)))
+    beta_optimizer = optim.Adam([log_beta], lr=3e-4)
+    beta = torch.exp(log_beta.detach())
 
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
@@ -407,7 +411,7 @@ if __name__ == "__main__":
                 next_actions = next_actions.reshape((-1,) + envs.single_action_space.shape)
 
                 # mb_advantages = (1 - args.lyapunov_weight) * b_advantages[mb_inds] + args.lyapunov_weight * torch.min(torch.tensor(0), -(lyapunov.forward(b_next_obs[mb_inds], next_actions) - lyapunov.forward(b_obs[mb_inds], b_actions[mb_inds]).detach()) / dt + 0.1)
-                mb_advantages = b_advantages[mb_inds] + 10 * torch.min(torch.tensor(0), -(lyapunov.forward(b_next_obs[mb_inds], next_actions) - lyapunov.forward(b_obs[mb_inds], b_actions[mb_inds]).detach()) / dt + 0.1)
+                mb_advantages = b_advantages[mb_inds] + beta * torch.min(torch.tensor(0), -(lyapunov.forward(b_next_obs[mb_inds], next_actions) - lyapunov.forward(b_obs[mb_inds], b_actions[mb_inds]).detach()) / dt + 0.1)
                 
                 
                 if args.norm_adv:
@@ -440,6 +444,15 @@ if __name__ == "__main__":
                 loss.backward()
                 nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
                 optimizer.step()
+
+                log_beta_loss = -log_beta * (l_lie.detach().mean())
+                beta_optimizer.zero_grad()
+                log_beta_loss.backward()
+                beta_optimizer.step()
+
+                beta = torch.exp(log_beta.detach())
+
+
 
             if args.target_kl is not None and approx_kl > args.target_kl:
                 break
