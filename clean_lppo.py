@@ -407,7 +407,7 @@ if __name__ == "__main__":
                 next_actions = next_actions.reshape((-1,) + envs.single_action_space.shape)
 
                 # mb_advantages = (1 - args.lyapunov_weight) * b_advantages[mb_inds] + args.lyapunov_weight * torch.min(torch.tensor(0), -(lyapunov.forward(b_next_obs[mb_inds], next_actions) - lyapunov.forward(b_obs[mb_inds], b_actions[mb_inds]).detach()) / dt + 0.1)
-                mb_advantages = (1 - args.lyapunov_weight) * b_advantages[mb_inds] + args.lyapunov_weight * torch.min(torch.tensor(0), -(lyapunov.forward(b_next_obs[mb_inds], next_actions) - lyapunov.forward(b_obs[mb_inds], b_actions[mb_inds]).detach()) / dt + 0.1)
+                mb_advantages = b_advantages[mb_inds] + 10 * torch.min(torch.tensor(0), -(lyapunov.forward(b_next_obs[mb_inds], next_actions) - lyapunov.forward(b_obs[mb_inds], b_actions[mb_inds]).detach()) / dt + 0.1)
                 
                 
                 if args.norm_adv:
