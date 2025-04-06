@@ -256,9 +256,9 @@ if __name__ == "__main__":
     next_obs = torch.Tensor(next_obs).to(device)
     next_done = torch.zeros(args.num_envs).to(device)
 
-    episode_rewards = deque(maxlen=50)
+    episode_rewards = []
     episode_count = 0
- 
+    max_reward = -np.inf
 
     for iteration in range(1, args.num_iterations + 1):
         # Annealing the rate if instructed to do so.
@@ -296,15 +296,37 @@ if __name__ == "__main__":
                     episode_count += 1
 
                     if episode_count % 50 == 0:
-                        print(f"Episodes Completed={episode_count}, Average Reward={np.mean(episode_rewards)}")
+                        avg_reward = np.mean(episode_rewards[-50:])
+                        print(f"Episodes Completed={episode_count}, Average Reward={avg_reward}")
                         writer.add_scalar("charts/episode_return", np.mean(episode_rewards), episode_count)
 
-            if "final_info" in infos:
-                for info in infos["final_info"]:
-                    if info and "episode" in info:
-                        print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
-                        writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
-                        writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+                        if avg_reward > max_reward:
+                            max_reward = avg_reward
+                            if args.save_model:
+                                model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model.pth"
+                                torch.save(agent.state_dict(), model_path)
+                                # print(f"model saved to {model_path}")
+
+                                env = envs.envs[0]
+                                while isinstance(env, gym.Wrapper):
+                                    if isinstance(env, NormalizeObservation):
+                                        mean = env.obs_rms.mean
+                                        var = env.obs_rms.var
+                                        epsilon = env.epsilon
+                                        break
+                                    env = env.env
+                                np.save(f"runs/{run_name}/mean.npy", mean)
+                                np.save(f"runs/{run_name}/var.npy", var)
+                                # print(f"mean saved to runs/{run_name}/mean.npy")
+                                # print(f"var saved to runs/{run_name}/var.npy")
+                                print("Saving model...")
+
+            # if "final_info" in infos:
+            #     for info in infos["final_info"]:
+            #         if info and "episode" in info:
+            #             print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
+            #             writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
+            #             writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
 
         # bootstrap value if not done
         with torch.no_grad():
@@ -434,10 +456,12 @@ if __name__ == "__main__":
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
     if args.save_model:
-        model_path = f"runs/{run_name}/{args.exp_name}.ly_agent"
-        torch.save(agent.state_dict(), model_path)
-        torch.save(lyapunov.state_dict(), model_path.replace(".ly_agent", ".ly_lyapunov"))
-        print(f"model saved to {model_path}")
+        np.save(f"runs/{run_name}/returns.npy", np.array(episode_rewards))
+        print(f"Saved model to runs/{run_name}/{args.exp_name}.cleanrl_model.pth")
+        print(f"mean saved to runs/{run_name}/mean.npy")
+        print(f"var saved to runs/{run_name}/var.npy")
+        print(f"Saved returns to runs/{run_name}/returns.npy")
+        print(f"Best episodic return: {max_reward}")
 
         # episodic_returns = evaluate(
         #     model_path,

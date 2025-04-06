@@ -14,6 +14,7 @@ from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 from typing import Callable
 from collections import deque
+from gymnasium.wrappers import NormalizeObservation
 
 from env.quad.quad_rotor_still import QuadStillEnv
 
@@ -43,9 +44,9 @@ class Args:
     """the user or org name of the model repository from the Hugging Face Hub"""
 
     # Algorithm specific arguments
-    env_id: str = "Quadrotor-Still-v1"
+    env_id: str = "Hopper-v4"
     """the id of the environment"""
-    total_timesteps: int = 1_000_000
+    total_timesteps: int = 50_000
     """total timesteps of the experiments"""
     learning_rate: float = 3e-4
     """the learning rate of the optimizer"""
@@ -151,7 +152,7 @@ def evaluate(
     run_name: str,
     Model: torch.nn.Module,
     device: torch.device = torch.device("cpu"),
-    capture_video: bool = True,
+    capture_video: bool = False,
     gamma: float = 0.99,
 ):
     envs = gym.vector.SyncVectorEnv([make_env(env_id, 0, capture_video, run_name, gamma)])
@@ -163,13 +164,15 @@ def evaluate(
     episodic_returns = []
     while len(episodic_returns) < eval_episodes:
         actions, _, _, _ = agent.get_action_and_value(torch.Tensor(obs).to(device))
-        next_obs, _, _, _, infos = envs.step(actions.cpu().numpy())
-        if "final_info" in infos:
-            for info in infos["final_info"]:
-                if "episode" not in info:
-                    continue
-                print(f"eval_episode={len(episodic_returns)}, episodic_return={info['episode']['r']}")
-                episodic_returns += [info["episode"]["r"]]
+        next_obs, _, terminated, truncated, info = envs.step(actions.detach().cpu().numpy())
+        dones = (terminated | truncated).flatten()
+        done = dones[0]
+
+        if done:
+            if "episode" not in info:
+                continue
+            print(f"eval_episode={len(episodic_returns)}, episodic_return={info['episode']['r']}")
+            episodic_returns += [info["episode"]["r"]]
         obs = next_obs
 
     return episodic_returns
@@ -231,8 +234,9 @@ if __name__ == "__main__":
     next_obs = torch.Tensor(next_obs).to(device)
     next_done = torch.zeros(args.num_envs).to(device)
 
-    episode_rewards = deque(maxlen=50)
+    episode_rewards = []
     episode_count = 0
+    max_reward = -np.inf
  
 
     for iteration in range(1, args.num_iterations + 1):
@@ -269,15 +273,34 @@ if __name__ == "__main__":
                     episode_count += 1
 
                     if episode_count % 50 == 0:
-                        print(f"Episodes Completed={episode_count}, Average Reward={np.mean(episode_rewards)}")
+                        avg_reward = np.mean(episode_rewards[-50:])
+                        print(f"Episodes Completed={episode_count}, Average Reward={avg_reward}")
                         writer.add_scalar("charts/episode_return", np.mean(episode_rewards), episode_count)
 
-            if "final_info" in infos:
-                for info in infos["final_info"]:
-                    if info and "episode" in info:
-                        print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
-                        writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
-                        writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+                        if avg_reward > max_reward:
+                            max_reward = avg_reward
+                            if args.save_model:
+                                model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model.pth"
+                                torch.save(agent.state_dict(), model_path)
+                                # print(f"model saved to {model_path}")
+
+                                env = envs.envs[0]
+                                while isinstance(env, gym.Wrapper):
+                                    if isinstance(env, NormalizeObservation):
+                                        mean = env.obs_rms.mean
+                                        var = env.obs_rms.var
+                                        epsilon = env.epsilon
+                                        break
+                                    env = env.env
+                                np.save(f"runs/{run_name}/mean.npy", mean)
+                                np.save(f"runs/{run_name}/var.npy", var)
+                                # print(f"mean saved to runs/{run_name}/mean.npy")
+                                # print(f"var saved to runs/{run_name}/var.npy")
+                                print("Saving model...")
+
+
+                                
+
 
         # bootstrap value if not done
         with torch.no_grad():
@@ -373,10 +396,23 @@ if __name__ == "__main__":
         #print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
+
     if args.save_model:
-        model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
-        torch.save(agent.state_dict(), model_path)
-        print(f"model saved to {model_path}")
+        np.save(f"runs/{run_name}/returns.npy", np.array(episode_rewards))
+        print(f"Saved model to runs/{run_name}/{args.exp_name}.cleanrl_model.pth")
+        print(f"mean saved to runs/{run_name}/mean.npy")
+        print(f"var saved to runs/{run_name}/var.npy")
+        print(f"Saved returns to runs/{run_name}/returns.npy")
+        print(f"Best episodic return: {max_reward}")
+
+    # obs, _ = envs.reset(seed=args.seed)
+    # print(obs)
+    # action, logprob, _, value = agent.get_action_and_value(torch.Tensor(obs).to(device))
+    # print(action)
+    # next_obs, reward, terminated, truncated, info = envs.step(action.detach().cpu().numpy())
+    # print(next_obs)
+
+
         # from cleanrl_utils.evals.ppo_eval import evaluate
 
         # episodic_returns = evaluate(
