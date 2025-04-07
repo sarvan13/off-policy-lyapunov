@@ -38,6 +38,7 @@ from gymnasium import utils, spaces
 import os
 from gymnasium.envs.mujoco import mujoco_env
 import math
+import copy
 
 # For testing whether a number is close to zero
 _FLOAT_EPS = np.finfo(np.float64).eps
@@ -83,6 +84,21 @@ class QuadRateEnv(mujoco_env.MujocoEnv, utils.EzPickle):
             self.reference_position.append(self.reference_position[i-1] + self.dt * self.vd)
         self.reference_position = np.array(self.reference_position)
 
+    def center_observation(self, obs):
+        ob = copy.deepcopy(obs)
+        pos = ob[0:3]
+        quat = ob[3:7]
+        lin_vel = ob[7:10]
+        ang_vel = ob[10:13]
+        ob[0] = pos[0] - self.reference_position[self.timestep][0]
+        ob[1] = pos[1] - self.reference_position[self.timestep][1]
+        ob[2] = pos[2] - self.reference_position[self.timestep][2]
+        ob[7] = lin_vel[0] - self.vd[0]
+        ob[8] = lin_vel[1] - self.vd[1]
+        ob[9] = lin_vel[2] - self.vd[2]
+
+        return ob
+
     def step(self, action):
         mass=self.get_mass()
         act_min=[0, -1, -1, -1]
@@ -104,12 +120,6 @@ class QuadRateEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         terminated =  linalg.norm(self.reference_position[self.timestep] - pos) > 3
         
         truncated = self.timestep >= self.max_timesteps - 1
-        # ob[0] = pos[0] - self.reference_position[self.timestep][0]
-        # ob[1] = pos[1] - self.reference_position[self.timestep][1]
-        # ob[2] = pos[2] - self.reference_position[self.timestep][2]
-        # ob[7] = lin_vel[0] - self.vd[0]
-        # ob[8] = lin_vel[1] - self.vd[1]
-        # ob[9] = lin_vel[2] - self.vd[2]
         info = {
             'rwp': reward_position,
             'rwlv': reward_linear_velocity,
@@ -130,7 +140,7 @@ class QuadRateEnv(mujoco_env.MujocoEnv, utils.EzPickle):
             self.log_cnt = 0
         else:
             self.log_cnt = self.log_cnt + 1
-        return ob, reward, terminated, truncated ,info
+        return self.center_observation(ob), reward, terminated, truncated ,info
 
     def _get_obs(self):
         pos = self.data.qpos*1e-0
@@ -143,7 +153,8 @@ class QuadRateEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self.set_state(qpos, qvel)
         observation = self._get_obs();
         self.timestep = 0
-        return observation
+
+        return self.center_observation(observation)
 
     def viewer_setup(self):
         v = self.viewer
