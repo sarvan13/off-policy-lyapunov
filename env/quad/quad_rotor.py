@@ -72,7 +72,7 @@ class QuadRateEnv(mujoco_env.MujocoEnv, utils.EzPickle):
             self.frame_skip, 
             observation_space=self.observation_space,
             **kwargs)
-        self.vd = np.array([1.0, 0, 0])
+        self.vd = np.array([0.5, 0, 0])
         utils.EzPickle.__init__(self)
         self.calculate_reference_trajectory()
 

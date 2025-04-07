@@ -17,6 +17,7 @@ from collections import deque
 from gymnasium.wrappers import NormalizeObservation
 
 from env.quad.quad_rotor_still import QuadStillEnv
+from env.quad.quad_rotor import QuadRateEnv
 
 @dataclass
 class Args:
