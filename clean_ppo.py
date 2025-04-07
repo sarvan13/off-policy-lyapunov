@@ -235,6 +235,7 @@ if __name__ == "__main__":
     next_done = torch.zeros(args.num_envs).to(device)
 
     episode_rewards = []
+    episode_steps = []
     episode_count = 0
     max_reward = -np.inf
  
@@ -270,6 +271,7 @@ if __name__ == "__main__":
                 if done:
                     episode_return = infos["episode"]["r"][i]
                     episode_rewards.append(episode_return)  # Store final reward
+                    episode_steps.append(global_step)
                     episode_count += 1
 
                     if episode_count % 50 == 0:
@@ -399,6 +401,7 @@ if __name__ == "__main__":
 
     if args.save_model:
         np.save(f"runs/{run_name}/returns.npy", np.array(episode_rewards))
+        np.save(f"runs/{run_name}/steps.npy", np.array(episode_steps))
         print(f"Saved model to runs/{run_name}/{args.exp_name}.cleanrl_model.pth")
         print(f"mean saved to runs/{run_name}/mean.npy")
         print(f"var saved to runs/{run_name}/var.npy")

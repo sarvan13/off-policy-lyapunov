@@ -262,6 +262,7 @@ if __name__ == "__main__":
     next_done = torch.zeros(args.num_envs).to(device)
 
     episode_rewards = []    
+    episode_steps = []
     episode_count = 0
     max_reward = -np.inf
     beta_arr = []
@@ -301,6 +302,7 @@ if __name__ == "__main__":
                 if done:
                     episode_return = infos["episode"]["r"][i]
                     episode_rewards.append(episode_return)  # Store final reward
+                    episode_steps.append(global_step)  # Store final length
                     episode_count += 1
 
                     if episode_count % 50 == 0:
@@ -313,6 +315,9 @@ if __name__ == "__main__":
                             if args.save_model:
                                 model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model.pth"
                                 torch.save(agent.state_dict(), model_path)
+                                lyapunov_path = f"runs/{run_name}/lyapunov.pth"
+                                torch.save(lyapunov.state_dict(), lyapunov_path)
+                                # print(f"lyapunov saved to {lyapunov_path}")
                                 # print(f"model saved to {model_path}")
 
                                 env = envs.envs[0]
@@ -502,10 +507,13 @@ if __name__ == "__main__":
     if args.save_model:
         np.save(f"runs/{run_name}/returns.npy", np.array(episode_rewards))
         np.save(f"runs/{run_name}/beta.npy", np.array(beta_arr))
+        np.save(f"runs/{run_name}/steps.npy", np.array(episode_steps))
         print(f"Saved model to runs/{run_name}/{args.exp_name}.cleanrl_model.pth")
+        print(f"lyapunov saved to {lyapunov_path}")
         print(f"mean saved to runs/{run_name}/mean.npy")
         print(f"var saved to runs/{run_name}/var.npy")
         print(f"Saved returns to runs/{run_name}/returns.npy")
+        print(f"Saved steps to runs/{run_name}/steps.npy")
         print(f"Saved beta to runs/{run_name}/beta.npy")
         print(f"Best episodic return: {max_reward}")
 
