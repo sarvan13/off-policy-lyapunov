@@ -103,7 +103,7 @@ class QuadStillEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         reward_angular_velocity = -linalg.norm(ang_vel) * 1e-3
         reward_alive = 1e-1
         reward = reward_ctrl+reward_position+reward_linear_velocity+reward_angular_velocity+reward_alive
-        terminated =  linalg.norm(self.reference_position[self.timestep] - pos) > 3
+        terminated =  linalg.norm(pos) > 3
         
         truncated = self.timestep >= self.max_timesteps - 1
         # ob[0] = pos[0] - self.reference_position[self.timestep][0]
