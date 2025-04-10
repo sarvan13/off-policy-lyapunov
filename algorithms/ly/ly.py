@@ -92,14 +92,22 @@ class ActorNet(nn.Module):
         self.mu = nn.Linear(self.fc2_dims, self.action_dims)
         # self.log_sigma = nn.Linear(self.fc2_dims, self.action_dims)
 
+        self.log_std_init = 0.0
+        self.log_std = nn.Parameter(T.ones(self.action_dims, dtype=T.float32) * self.log_std_init, requires_grad=True)
+
         self.optimizer = optim.Adam(self.parameters(), lr=self.lr)
         self.device = ('cuda:0' if T.cuda.is_available() else 'cpu')
         self.max_action = T.tensor(max_action).to(self.device)
-        self.initial_cov_var = T.full(size=(self.action_dims,), fill_value=0.5)
-        self.cov_var = T.full(size=(self.action_dims,), fill_value=0.5)
-        self.final_cov_var = 0.2
-        self.cov_mat = T.diag(self.initial_cov_var).to(self.device)
+        # self.initial_cov_var = T.full(size=(self.action_dims,), fill_value=0.5)
+        # self.cov_var = T.full(size=(self.action_dims,), fill_value=0.5)
+        # self.final_cov_var = 0.2
+        # self.cov_mat = T.diag(self.initial_cov_var).to(self.device)
         self.to(self.device)
+    
+    @property
+    def cov_mat(self):
+        """Dynamically compute the covariance matrix based on the current log_std."""
+        return T.diag(self.log_std.exp()**2).to(self.device)
     
     def forward(self, state):
         layer1 = T.relu(self.fc1(state))
@@ -139,9 +147,9 @@ class ActorNet(nn.Module):
 
         return normal.log_prob(action)
     
-    def decay_covariance(self, total_episodes):
-        self.cov_var -= (self.initial_cov_var - self.final_cov_var) / total_episodes
-        self.cov_mat = T.diag(self.cov_var).to(self.device)
+    # def decay_covariance(self, total_episodes):
+    #     self.cov_var -= (self.initial_cov_var - self.final_cov_var) / total_episodes
+    #     self.cov_mat = T.diag(self.cov_var).to(self.device)
 
     def save_checkpoint(self):
         T.save(self.state_dict(), self.save_path)
@@ -179,7 +187,7 @@ class CriticNetwork(nn.Module):
         self.load_state_dict(T.load(self.checkpoint_file))
 
 class LYAgent:
-    def __init__(self, n_actions, input_dims, max_action, dt, update_freq, gamma=0.99, alpha=0.0003, gae_lambda=0.95,
+    def __init__(self, n_actions, input_dims, max_action, dt, update_freq, equilibrium_state, gamma=0.99, alpha=0.0003, gae_lambda=0.95,
             policy_clip=0.2, batch_size=64, n_epochs=10, normalize_advantage=True, beta = 0.5, entropy_coeff = 0.001,
             target_kl = None):
         self.gamma = gamma
@@ -192,6 +200,7 @@ class LYAgent:
         self.entropy_coeff = entropy_coeff
         self.target_kl = target_kl
         self.normalize_advantage = normalize_advantage
+        self.equilibrium_state = equilibrium_state 
 
         self.actor = ActorNet(input_dims,n_actions, max_action, lr=alpha)
         self.critic = CriticNetwork(input_dims, alpha)
@@ -247,7 +256,7 @@ class LYAgent:
 
                 lyapunov_values = self.lyapunov(states)
                 lie_derivative = (self.lyapunov(next_states) - lyapunov_values) / self.dt
-                equilibrium_lyapunov = self.lyapunov(T.zeros(self.input_dims).to(self.actor.device))
+                equilibrium_lyapunov = self.lyapunov(self.equilibrium_state.to(self.actor.device))
 
                 loss = T.max(T.tensor(0), -lyapunov_values).mean() + T.max(T.tensor(0), lie_derivative).mean() + equilibrium_lyapunov**2
 

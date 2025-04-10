@@ -2,8 +2,10 @@ import gymnasium as gym
 import numpy as np
 from algorithms.ly.ly import LYAgent
 from env.quad import QuadStillEnv
+from env.cartpole.cost_pend import CustomInvertedPendulumEnv
 import time
 import argparse
+import torch
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train LYAgent with command line arguments')
@@ -18,11 +20,12 @@ if __name__ == '__main__':
     batch_size = args.batch_size
     n_epochs = 10
     alpha = 0.0003
+    equilibrium_state = torch.tensor([np.array([np.cos(0), np.sin(0), 0])], dtype=torch.float)
     agent = LYAgent(n_actions=env.action_space.shape[0], batch_size=batch_size, 
                     alpha=alpha, n_epochs=n_epochs, dt=env.unwrapped.dt,
                     input_dims=env.observation_space.shape[0],
                     max_action=env.action_space.high, update_freq=N,
-                    entropy_coeff=0.001)
+                    equilibrium_state=equilibrium_state ,entropy_coeff=0.001)
     n_steps = args.n_steps
     init_time = time.time()
     curr_time = time.time() - init_time
@@ -57,7 +60,7 @@ if __name__ == '__main__':
                 verbose_flag = True
                 curr_time = time.time() - init_time
             observation = observation_
-            agent.actor.decay_covariance(n_steps)
+            # agent.actor.decay_covariance(n_steps)
         
         score_history.append(score)
         avg_score = np.mean(score_history[-100:])
