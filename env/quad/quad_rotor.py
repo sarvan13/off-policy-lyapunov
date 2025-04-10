@@ -75,29 +75,23 @@ class QuadRateEnv(mujoco_env.MujocoEnv, utils.EzPickle):
             **kwargs)
         self.vd = np.array([0.5, 0, 0])
         utils.EzPickle.__init__(self)
-        self.calculate_reference_trajectory()
 
-    def calculate_reference_trajectory(self):
-        self.start_point = np.array([1, 0, 2])
-        self.reference_position = [self.start_point]
-        for i in range(1, self.max_timesteps):
-            self.reference_position.append(self.reference_position[i-1] + self.dt * self.vd)
-        self.reference_position = np.array(self.reference_position)
+        trajectory_name = "ppo_trajectory.npy"
+        trajectory_path = os.path.join(current_dir, trajectory_name)
+        self.trajectory = np.load(trajectory_path)
+    #     self.calculate_reference_trajectory()
+
+    # def calculate_reference_trajectory(self):
+    #     self.start_point = np.array([1, 0, 2])
+    #     self.reference_position = [self.start_point]
+    #     for i in range(1, self.max_timesteps):
+    #         self.reference_position.append(self.reference_position[i-1] + self.dt * self.vd)
+    #     self.reference_position = np.array(self.reference_position)
 
     def center_observation(self, obs):
         ob = copy.deepcopy(obs)
-        pos = ob[0:3]
-        quat = ob[3:7]
-        lin_vel = ob[7:10]
-        ang_vel = ob[10:13]
-        ob[0] = pos[0] - self.reference_position[self.timestep][0]
-        ob[1] = pos[1] - self.reference_position[self.timestep][1]
-        ob[2] = pos[2] - self.reference_position[self.timestep][2]
-        ob[7] = lin_vel[0] - self.vd[0]
-        ob[8] = lin_vel[1] - self.vd[1]
-        ob[9] = lin_vel[2] - self.vd[2]
 
-        return ob
+        return ob - self.trajectory[self.timestep]
 
     def step(self, action):
         mass=self.get_mass()
@@ -112,12 +106,12 @@ class QuadRateEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         lin_vel = ob[7:10]
         ang_vel = ob[10:13]
         reward_ctrl = - 1e-4 * np.sum(np.square(action))
-        reward_position = -linalg.norm(self.reference_position[self.timestep] - pos) * 1e-1
+        reward_position = -linalg.norm(self.trajectory[self.timestep][0:3] - pos) * 1e-1
         reward_linear_velocity = -linalg.norm(self.vd - lin_vel) * 1e-2
         reward_angular_velocity = -linalg.norm(ang_vel) * 1e-3
         reward_alive = 1e-1
         reward = reward_ctrl+reward_position+reward_linear_velocity+reward_angular_velocity+reward_alive
-        terminated =  linalg.norm(self.reference_position[self.timestep] - pos) > 3
+        terminated =  linalg.norm(self.trajectory[self.timestep][0:3] - pos) > 3
         
         truncated = self.timestep >= self.max_timesteps - 1
         info = {
