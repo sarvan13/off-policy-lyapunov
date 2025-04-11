@@ -107,8 +107,8 @@ class QuadRateEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         ang_vel = ob[10:13]
         reward_ctrl = - 1e-4 * np.sum(np.square(action))
         reward_position = -linalg.norm(self.trajectory[self.timestep][0:3] - pos) * 1e-1
-        reward_linear_velocity = -linalg.norm(self.vd - lin_vel) * 1e-2
-        reward_angular_velocity = -linalg.norm(ang_vel) * 1e-3
+        reward_linear_velocity = -linalg.norm(self.trajectory[self.timestep][7:10] - lin_vel) * 1e-2
+        reward_angular_velocity = -linalg.norm(self.trajectory[self.timestep][10:13] - ang_vel) * 1e-3
         reward_alive = 1e-1
         reward = reward_ctrl+reward_position+reward_linear_velocity+reward_angular_velocity+reward_alive
         terminated =  linalg.norm(self.trajectory[self.timestep][0:3] - pos) > 3
