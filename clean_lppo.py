@@ -394,25 +394,7 @@ if __name__ == "__main__":
         b_next_actions = b_next_actions.detach().reshape((-1,) + envs.single_action_space.shape)
 
 
-        # for start in range(0, args.batch_size, args.minibatch_size):
-        #         end = start + args.minibatch_size
-        #         mb_inds = b_inds[start:end]
-
-
-        #         l_vals = lyapunov.forward(b_obs[mb_inds], b_actions[mb_inds])
-        #         l_lie = (lyapunov.forward(b_next_obs[mb_inds], b_next_actions[mb_inds]) - l_vals) / dt
-        #         l_eq = lyapunov.forward(eq_obs, eq_action)
-
-        #         l_loss = torch.max(torch.tensor(0), - l_vals).mean() + torch.max(torch.tensor(0), l_lie + 0.1).mean() + l_eq**2
-
-        #         lyapunov.optimizer.zero_grad()
-        #         l_loss.backward()
-        #         nn.utils.clip_grad_norm_(lyapunov.parameters(), args.max_grad_norm)
-        #         lyapunov.optimizer.step()
-
-        for epoch in range(args.update_epochs):
-            np.random.shuffle(b_inds)
-            for start in range(0, args.batch_size, args.minibatch_size):
+        for start in range(0, args.batch_size, args.minibatch_size):
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
@@ -428,6 +410,24 @@ if __name__ == "__main__":
                 nn.utils.clip_grad_norm_(lyapunov.parameters(), args.max_grad_norm)
                 lyapunov.optimizer.step()
 
+        for epoch in range(args.update_epochs):
+            np.random.shuffle(b_inds)
+            for start in range(0, args.batch_size, args.minibatch_size):
+                end = start + args.minibatch_size
+                mb_inds = b_inds[start:end]
+
+
+                # l_vals = lyapunov.forward(b_obs[mb_inds], b_actions[mb_inds])
+                # l_lie = (lyapunov.forward(b_next_obs[mb_inds], b_next_actions[mb_inds]) - l_vals) / dt
+                # l_eq = lyapunov.forward(eq_obs, eq_action)
+
+                # l_loss = torch.max(torch.tensor(0), - l_vals).mean() + torch.max(torch.tensor(0), l_lie + 0.1).mean() + l_eq**2
+
+                # lyapunov.optimizer.zero_grad()
+                # l_loss.backward()
+                # nn.utils.clip_grad_norm_(lyapunov.parameters(), args.max_grad_norm)
+                # lyapunov.optimizer.step()
+
                 _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
@@ -441,8 +441,9 @@ if __name__ == "__main__":
                 next_actions, _, _ ,_ = agent.get_action_and_value(b_next_obs[mb_inds])
                 next_actions = next_actions.reshape((-1,) + envs.single_action_space.shape)
 
+                l_lie = lyapunov.forward(b_next_obs[mb_inds], next_actions) - lyapunov.forward(b_obs[mb_inds], b_actions[mb_inds])
                 # mb_advantages = (1 - args.lyapunov_weight) * b_advantages[mb_inds] + args.lyapunov_weight * torch.min(torch.tensor(0), -(lyapunov.forward(b_next_obs[mb_inds], next_actions) - lyapunov.forward(b_obs[mb_inds], b_actions[mb_inds]).detach()) / dt + 0.1)
-                mb_advantages = b_advantages[mb_inds] + beta * torch.min(torch.tensor(0), -(lyapunov.forward(b_next_obs[mb_inds], next_actions) - lyapunov.forward(b_obs[mb_inds], b_actions[mb_inds]).detach()) / dt + 0.1)
+                mb_advantages = b_advantages[mb_inds] + beta * torch.min(torch.tensor(0), -(l_lie.detach()) / dt + 0.1)
                 
                 
                 if args.norm_adv:
