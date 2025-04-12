@@ -35,7 +35,7 @@ torch.backends.cudnn.deterministic = args.torch_deterministic
 env = gym.make(env_name)
 
 if env_name == "Pendulum-v1":
-    equilibrium_state = torch.tensor([np.cos(0), np.sin(0), 0.0], dtype=torch.float)
+    equilibrium_state = torch.tensor([np.array([np.cos(0), np.sin(0), 0])], dtype=torch.float)
 else:
     equilibrium_state = torch.zeros((1, env.observation_space.shape[0]), dtype=torch.float)
 
