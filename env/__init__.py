@@ -14,7 +14,7 @@ register(
 def make_bicycle_env():
     from env.bicycle.bicycle_model import KinematicBicycleEnv
     env = KinematicBicycleEnv()
-    env = TimeLimit(env, max_episode_steps=1000)  # Apply TimeLimit wrapper
+    # env = TimeLimit(env, max_episode_steps=1000)  # Apply TimeLimit wrapper
     return env
 
 register(
