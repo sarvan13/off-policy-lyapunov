@@ -127,11 +127,6 @@ class ActorNet(nn.Module):
         else:
             sampled_action = normal.sample()
 
-        # tanh_action = T.tanh(sampled_action)
-        # action = tanh_action * self.max_action
-        # log_prob = normal.log_prob(sampled_action) - T.log(self.max_action*(1 - tanh_action.pow(2)) + self.reparam_noise)
-        # log_prob = log_prob.sum(dim=1, keepdim=True)
-
         log_prob = normal.log_prob(sampled_action)
 
         return sampled_action, log_prob
@@ -279,7 +274,7 @@ class PPOAgent:
                 entropy = -T.mean(-new_probs)
 
                 returns = advantages + values[batch]
-                critic_loss = (returns-critic_value)**2
+                critic_loss = 0.5*(returns-critic_value)**2
                 critic_loss = critic_loss.mean()
 
                 total_loss = actor_loss + 0.5*critic_loss + self.entropy_coeff*entropy

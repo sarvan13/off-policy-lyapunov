@@ -159,10 +159,10 @@ class ActorNet(nn.Module):
 
 class CriticNetwork(nn.Module):
     def __init__(self, input_dims, alpha, fc1_dims=256, fc2_dims=256,
-            chkpt_dir='data\\ly', name='critic.pth'):
+            save_dir='data\\ly', name='critic.pth'):
         super(CriticNetwork, self).__init__()
 
-        self.checkpoint_file = os.path.join(chkpt_dir, name)
+        self.checkpoint_file = os.path.join(save_dir, name)
         self.critic = nn.Sequential(
                 nn.Linear(input_dims, fc1_dims),
                 nn.ReLU(),
@@ -188,7 +188,7 @@ class CriticNetwork(nn.Module):
 
 class LYAgent:
     def __init__(self, n_actions, input_dims, max_action, dt, update_freq, equilibrium_state, gamma=0.99, alpha=0.0003, gae_lambda=0.95,
-            policy_clip=0.2, batch_size=64, n_epochs=10, normalize_advantage=True, beta = 0.5, entropy_coeff = 0.001,
+            policy_clip=0.2, batch_size=64, n_epochs=10, normalize_advantage=True, beta = 0.5, entropy_coeff = 0.001, save_dir='data\\ly',
             target_kl = None):
         self.gamma = gamma
         self.policy_clip = policy_clip
@@ -202,9 +202,9 @@ class LYAgent:
         self.normalize_advantage = normalize_advantage
         self.equilibrium_state = equilibrium_state 
 
-        self.actor = ActorNet(input_dims,n_actions, max_action, lr=alpha)
-        self.critic = CriticNetwork(input_dims, alpha)
-        self.lyapunov = CriticNetwork(input_dims, alpha, name='lyapunov.pth')
+        self.actor = ActorNet(input_dims,n_actions, max_action, lr=alpha, save_dir=save_dir)
+        self.critic = CriticNetwork(input_dims, alpha, save_dir=save_dir)
+        self.lyapunov = CriticNetwork(input_dims, alpha, save_dir=save_dir, name='lyapunov.pth')
         self.memory = PPOMemory(update_freq, batch_size)
        
     def remember(self, state, action, probs, vals, reward, next_state, done):
@@ -297,7 +297,8 @@ class LYAgent:
 
                 new_probs = self.actor.get_log_prob(states, actions)
                 prob_ratio = new_probs.exp() / old_probs.exp()
-                adjusted_advantage = (1- self.beta) * advantages + self.beta * T.min(T.tensor(0), -(self.lyapunov(next_states) - self.lyapunov(states)/self.dt))
+                with T.no_grad():
+                    adjusted_advantage = (1- self.beta) * advantages + self.beta * T.min(T.tensor(0), -(self.lyapunov(next_states) - self.lyapunov(states))/self.dt)
                 if self.normalize_advantage:
                     # Normalize the adjusted advantages
                     adjusted_advantage = (adjusted_advantage - adjusted_advantage.mean()) / (adjusted_advantage.std() + 1e-8)
