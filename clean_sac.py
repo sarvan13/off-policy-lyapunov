@@ -16,6 +16,9 @@ from stable_baselines3.common.buffers import ReplayBuffer
 from torch.utils.tensorboard import SummaryWriter
 
 from env.quad.quad_rotor_still import QuadStillEnv
+from env.cartpole.cost_pend import CustomInvertedPendulumEnv
+from env.bicycle.bicycle_model import KinematicBicycleEnv
+
 
 @dataclass
 class Args:
@@ -39,9 +42,9 @@ class Args:
     """whether to capture videos of the agent performances (check out `videos` folder)"""
 
     # Algorithm specific arguments
-    env_id: str = "Quadrotor-Still-v1"
+    env_id: str = "Pendulum-v1"
     """the environment id of the task"""
-    total_timesteps: int = 1_000_000
+    total_timesteps: int = 100_000
     """total timesteps of the experiments"""
     num_envs: int = 1
     """the number of parallel game environments"""
