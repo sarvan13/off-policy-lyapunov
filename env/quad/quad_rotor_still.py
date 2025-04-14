@@ -38,12 +38,13 @@ from gymnasium import utils, spaces
 import os
 from gymnasium.envs.mujoco import mujoco_env
 import math
+import copy
 
 # For testing whether a number is close to zero
 _FLOAT_EPS = np.finfo(np.float64).eps
 _EPS4 = _FLOAT_EPS * 4.0
 
-class QuadStillEnv(mujoco_env.MujocoEnv, utils.EzPickle):
+class QuadRateEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     metadata = {
         "render_modes": [
             "human",
@@ -72,16 +73,25 @@ class QuadStillEnv(mujoco_env.MujocoEnv, utils.EzPickle):
             self.frame_skip, 
             observation_space=self.observation_space,
             **kwargs)
-        self.vd = np.array([1.0, 0, 0])
+        self.vd = np.array([0.5, 0, 0])
         utils.EzPickle.__init__(self)
-        self.calculate_reference_trajectory()
 
-    def calculate_reference_trajectory(self):
-        self.start_point = np.array([1, 0, 2])
-        self.reference_position = [self.start_point]
-        for i in range(1, self.max_timesteps):
-            self.reference_position.append(self.reference_position[i-1] + self.dt * self.vd)
-        self.reference_position = np.array(self.reference_position)
+        trajectory_name = "ppo_trajectory.npy"
+        trajectory_path = os.path.join(current_dir, trajectory_name)
+        self.trajectory = np.load(trajectory_path)
+    #     self.calculate_reference_trajectory()
+
+    # def calculate_reference_trajectory(self):
+    #     self.start_point = np.array([1, 0, 2])
+    #     self.reference_position = [self.start_point]
+    #     for i in range(1, self.max_timesteps):
+    #         self.reference_position.append(self.reference_position[i-1] + self.dt * self.vd)
+    #     self.reference_position = np.array(self.reference_position)
+
+    def center_observation(self, obs):
+        ob = copy.deepcopy(obs)
+
+        return ob - self.trajectory[self.timestep]
 
     def step(self, action):
         mass=self.get_mass()
@@ -96,22 +106,16 @@ class QuadStillEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         lin_vel = ob[7:10]
         ang_vel = ob[10:13]
         reward_ctrl = - 1e-4 * np.sum(np.square(action))
-        reward_position = -linalg.norm(pos) * 1e-1
-        reward_linear_velocity = -linalg.norm(lin_vel) * 1e-2
-        # reward_position = -linalg.norm(self.reference_position[self.timestep] - pos) * 1e-1
-        # reward_linear_velocity = -linalg.norm(self.vd - lin_vel) * 1e-2
-        reward_angular_velocity = -linalg.norm(ang_vel) * 1e-3
+        reward_position = -linalg.norm(self.trajectory[self.timestep][0:3] - pos) * 1e-1
+        # reward_linear_velocity = -linalg.norm(self.trajectory[self.timestep][7:10] - lin_vel) * 1e-2
+        # reward_angular_velocity = -linalg.norm(self.trajectory[self.timestep][10:13] - ang_vel) * 1e-3
+        reward_linear_velocity = 0
+        reward_angular_velocity = 0
         reward_alive = 1e-1
         reward = reward_ctrl+reward_position+reward_linear_velocity+reward_angular_velocity+reward_alive
-        terminated =  linalg.norm(pos) > 3
+        terminated =  linalg.norm(self.trajectory[self.timestep][0:3] - pos) > 3
         
         truncated = self.timestep >= self.max_timesteps - 1
-        # ob[0] = pos[0] - self.reference_position[self.timestep][0]
-        # ob[1] = pos[1] - self.reference_position[self.timestep][1]
-        # ob[2] = pos[2] - self.reference_position[self.timestep][2]
-        # ob[7] = lin_vel[0] - self.vd[0]
-        # ob[8] = lin_vel[1] - self.vd[1]
-        # ob[9] = lin_vel[2] - self.vd[2]
         info = {
             'rwp': reward_position,
             'rwlv': reward_linear_velocity,
@@ -124,15 +128,15 @@ class QuadStillEnv(mujoco_env.MujocoEnv, utils.EzPickle):
             'obvy': lin_vel[1],
             'obvz': lin_vel[2],
         }
-        if terminated:
-            reward = self.avg_rwd / (1-self.gamma)*2#-13599.99
+        # if terminated:
+        #     reward = self.avg_rwd / (1-self.gamma)*2#-13599.99
         if self.log_cnt == 1e4:
-            print("x={},y={},z={}".format(pos[0], pos[1], pos[2]))
-            print("thrust={}, dx={}, dy={}, dz={} \n".format(action[0], action[1], action[2], action[3]))
+            print("x={},y={},z={}\n".format(pos[0], pos[1], pos[2]))
+            print("thrust={}, dx={}, dy={}, dz={}".format(action[0], action[1], action[2], action[3]))
             self.log_cnt = 0
         else:
             self.log_cnt = self.log_cnt + 1
-        return ob, reward, terminated, truncated ,info
+        return self.center_observation(ob), reward, terminated, truncated ,info
 
     def _get_obs(self):
         pos = self.data.qpos*1e-0
@@ -145,7 +149,8 @@ class QuadStillEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self.set_state(qpos, qvel)
         observation = self._get_obs();
         self.timestep = 0
-        return observation
+
+        return self.center_observation(observation)
 
     def viewer_setup(self):
         v = self.viewer
