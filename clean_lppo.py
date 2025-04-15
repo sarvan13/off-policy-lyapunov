@@ -18,6 +18,7 @@ from gymnasium.wrappers import NormalizeObservation
 
 from env.quad.quad_rotor_still import QuadStillEnv
 from env.quad.quad_rotor import QuadRateEnv
+from env.bicycle.bicycle_model import KinematicBicycleEnv
 
 @dataclass
 class Args:
@@ -222,6 +223,10 @@ if __name__ == "__main__":
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
 
+    curr_dir = os.path.dirname(os.path.abspath(__file__))
+    data_path = os.path.join(curr_dir, "data", args.env_id, "clean_lppo", "seed_" + str(args.seed))
+    os.makedirs(data_path, exist_ok=True)
+
     # TRY NOT TO MODIFY: seeding
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -314,12 +319,10 @@ if __name__ == "__main__":
                         if avg_reward > max_reward:
                             max_reward = avg_reward
                             if args.save_model:
-                                model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model.pth"
+                                model_path = os.path.join(data_path, f"{args.exp_name}.cleanrl_model.pth")
                                 torch.save(agent.state_dict(), model_path)
-                                lyapunov_path = f"runs/{run_name}/lyapunov.pth"
+                                lyapunov_path = os.path.join(data_path, "lyapunov.pth")
                                 torch.save(lyapunov.state_dict(), lyapunov_path)
-                                # print(f"lyapunov saved to {lyapunov_path}")
-                                # print(f"model saved to {model_path}")
 
                                 env = envs.envs[0]
                                 while isinstance(env, gym.Wrapper):
@@ -329,8 +332,8 @@ if __name__ == "__main__":
                                         epsilon = env.epsilon
                                         break
                                     env = env.env
-                                np.save(f"runs/{run_name}/mean.npy", mean)
-                                np.save(f"runs/{run_name}/var.npy", var)
+                                np.save(os.path.join(data_path, "mean.npy"), mean)
+                                np.save(os.path.join(data_path, "var.npy"), var)
                                 # print(f"mean saved to runs/{run_name}/mean.npy")
                                 # print(f"var saved to runs/{run_name}/var.npy")
                                 print("Saving model...")
@@ -507,16 +510,11 @@ if __name__ == "__main__":
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
     if args.save_model:
-        np.save(f"runs/{run_name}/returns.npy", np.array(episode_rewards))
-        np.save(f"runs/{run_name}/beta.npy", np.array(beta_arr))
-        np.save(f"runs/{run_name}/steps.npy", np.array(episode_steps))
-        print(f"Saved model to runs/{run_name}/{args.exp_name}.cleanrl_model.pth")
+        np.save(os.path.join(data_path, "returns.npy"), np.array(episode_rewards))
+        np.save(os.path.join(data_path, "steps.npy"), np.array(episode_steps))
+        np.save(os.path.join(data_path, "beta.npy"), np.array(beta_arr))
+        print(f"Saved model to {data_path}{args.exp_name}.cleanrl_model.pth")
         print(f"lyapunov saved to {lyapunov_path}")
-        print(f"mean saved to runs/{run_name}/mean.npy")
-        print(f"var saved to runs/{run_name}/var.npy")
-        print(f"Saved returns to runs/{run_name}/returns.npy")
-        print(f"Saved steps to runs/{run_name}/steps.npy")
-        print(f"Saved beta to runs/{run_name}/beta.npy")
         print(f"Best episodic return: {max_reward}")
 
         # episodic_returns = evaluate(

@@ -16,6 +16,7 @@ from typing import Callable
 from collections import deque
 from gymnasium.wrappers import NormalizeObservation
 
+from env.bicycle.bicycle_model import KinematicBicycleEnv
 from env.quad.quad_rotor_still import QuadStillEnv
 from env.quad.quad_rotor import QuadRateEnv
 
@@ -185,6 +186,11 @@ if __name__ == "__main__":
     args.minibatch_size = int(args.batch_size // args.num_minibatches)
     args.num_iterations = args.total_timesteps // args.batch_size
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+
+    curr_dir = os.path.dirname(os.path.abspath(__file__))
+    data_path = os.path.join(curr_dir, "data", args.env_id, "clean_ppo", "seed_" + str(args.seed))
+    os.makedirs(data_path, exist_ok=True)
+
     if args.track:
         import wandb
 
@@ -283,7 +289,8 @@ if __name__ == "__main__":
                         if avg_reward > max_reward:
                             max_reward = avg_reward
                             if args.save_model:
-                                model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model.pth"
+                                
+                                model_path = os.path.join(data_path, f"{args.exp_name}.cleanrl_model.pth")
                                 torch.save(agent.state_dict(), model_path)
                                 # print(f"model saved to {model_path}")
 
@@ -295,8 +302,8 @@ if __name__ == "__main__":
                                         epsilon = env.epsilon
                                         break
                                     env = env.env
-                                np.save(f"runs/{run_name}/mean.npy", mean)
-                                np.save(f"runs/{run_name}/var.npy", var)
+                                np.save(os.path.join(data_path, "mean.npy"), mean)
+                                np.save(os.path.join(data_path, "var.npy"), var)
                                 # print(f"mean saved to runs/{run_name}/mean.npy")
                                 # print(f"var saved to runs/{run_name}/var.npy")
                                 print("Saving model...")
@@ -401,12 +408,12 @@ if __name__ == "__main__":
 
 
     if args.save_model:
-        np.save(f"runs/{run_name}/returns.npy", np.array(episode_rewards))
-        np.save(f"runs/{run_name}/steps.npy", np.array(episode_steps))
-        print(f"Saved model to runs/{run_name}/{args.exp_name}.cleanrl_model.pth")
-        print(f"mean saved to runs/{run_name}/mean.npy")
-        print(f"var saved to runs/{run_name}/var.npy")
-        print(f"Saved returns to runs/{run_name}/returns.npy")
+        np.save(os.path.join(data_path, "returns.npy"), np.array(episode_rewards))
+        np.save(os.path.join(data_path, "steps.npy"), np.array(episode_steps))
+        print(f"Saved model to {data_path}{args.exp_name}.cleanrl_model.pth")
+        print(f"mean saved to {data_path}mean.npy")
+        print(f"var saved to {data_path}var.npy")
+        print(f"Saved returns to {data_path}returns.npy")
         print(f"Best episodic return: {max_reward}")
 
     # obs, _ = envs.reset(seed=args.seed)
