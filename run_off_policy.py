@@ -8,6 +8,7 @@ import random
 
 from algorithms.sac.agent import SACAgent
 from algorithms.lsac.agent import LSACAgent
+from algorithms.lac.agent import LAC
 
 from env.quad.quad_rotor_still import QuadStillEnv
 from env.cartpole.cost_pend import CustomInvertedPendulumEnv
@@ -15,9 +16,9 @@ from env.bicycle.bicycle_model import KinematicBicycleEnv
 
 parser = argparse.ArgumentParser(description='Train SAC/LSAC with command line arguments')
 # parser.add_argument('--N', type=int, default=2048, help='Update frequency')
-parser.add_argument('--n_steps', type=int, default=200_000, help='Number of steps')
+parser.add_argument('--n_steps', type=int, default=1_000_000, help='Number of steps')
 parser.add_argument('--modelType', type=str, default="sac", help='Model type: sac or lsac')
-parser.add_argument('--env', type=str, default="Pendulum-v1", help='Environment name')
+parser.add_argument('--env', type=str, default="Bicycle-v1", help='Environment name')
 parser.add_argument('--seed', type=int, default=1, help='Random seed for reproducibility')
 parser.add_argument('--torch_deterministic', type=bool, default=True, help='Use deterministic mode for PyTorch')
 args = parser.parse_args()
@@ -48,6 +49,8 @@ if modelType == "sac":
 elif modelType == "lsac":
     agent = LSACAgent(env.observation_space.shape[0], env.action_space.shape[0], env.action_space.high, 
                         dt=env.unwrapped.dt, equilibrium_state=equilibrium_state, save_dir=data_path)    
+elif modelType == "lac":
+    agent = LAC(env.observation_space.shape[0], env.action_space.shape[0], env.action_space.high, alpha=0.1, save_dir=data_path)
 else:
     raise ValueError("Invalid model type")
 
@@ -70,15 +73,18 @@ while global_steps < total_steps:
         action = agent.choose_action(state, reparameterize=False)
         next_state, cost, terminated, truncated, _ = env.step(action)
 
-        agent.remember((state, action, cost, next_state, terminated))
+        done = terminated or truncated
+
+        if modelType == "lac":
+            agent.remember((state, action, -cost, next_state, done))
+        else:
+            agent.remember((state, action, cost, next_state, done))
 
         state = next_state
 
         episode_cost += cost
         episode_steps += 1
 
-        if terminated or truncated:
-            break
 
     episode_num += 1
     reward_arr.append(episode_cost)
@@ -92,9 +98,10 @@ while global_steps < total_steps:
         print(f"Best model saved at episode {episode_num} with average reward {avg_reward}")
 
     if episode_num % 50 == 0:
-        print(f"Episode {episode_num} - Cost: {episode_cost}, Average Cost: {avg_reward}, Steps: {episode_steps}, Global Steps: {global_steps}")
+        print(f"Episode {episode_num} - Cost: {episode_cost}, Average Cost: {avg_reward}, Steps: {episode_steps}, Avg Steps: {np.mean([step_arr[-100:]])}, Global Steps: {global_steps}")
 
     state, _ = env.reset()
+    done = False
     
     for j in range(episode_steps):
         if modelType == "lsac":
