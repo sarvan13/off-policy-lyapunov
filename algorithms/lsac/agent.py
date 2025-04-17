@@ -163,12 +163,12 @@ class LSACAgent():
         q_loss.backward()
         self.q.optimizer.step()
 
-        beta_loss = -self.log_beta*(org_lie_derivative.detach().mean())
-        self.beta_optimizer.zero_grad()
-        beta_loss.backward()
-        self.beta_optimizer.step()
+        # beta_loss = -self.log_beta*(org_lie_derivative.detach().mean())
+        # self.beta_optimizer.zero_grad()
+        # beta_loss.backward()
+        # self.beta_optimizer.step()
 
-        self.beta = torch.exp(self.log_beta) 
+        # self.beta = torch.exp(self.log_beta) 
 
         # Update V Target Network
         # Update the target value network

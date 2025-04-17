@@ -62,6 +62,8 @@ done = False
 
 reward_arr = []
 step_arr = []
+beta_arr = []
+ly_loss = []
 best_reward = -np.inf
 global_steps = 0
 episode_num = 0
@@ -105,17 +107,21 @@ while global_steps < total_steps:
     
     for j in range(episode_steps):
         if modelType == "lsac":
-            agent.learn_lyapunov()
+            loss = agent.learn_lyapunov()
+            if j == episode_steps - 1 and loss is not None:
+                ly_loss.append(loss.item())
         agent.train()
 
     # print(f"Episode {k} - Cost: {episode_cost}, Steps: {episode_steps}")
-    # if modelType == "lsac":
-    #     print(f"Beta: {agent.beta.item()}")
+    if modelType == "lsac":
+        beta_arr.append(agent.beta.item())
 
 env.close()
 
 np.save(os.path.join(data_path, "reward_arr.npy"), np.array(reward_arr))
 np.save(os.path.join(data_path, "step_arr.npy"), np.array(step_arr))
+np.save(os.path.join(data_path, "beta_arr.npy"), np.array(beta_arr))
+np.save(os.path.join(data_path, "ly_loss.npy"), np.array(ly_loss))
 
 # agent.save()
 

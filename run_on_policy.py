@@ -18,9 +18,9 @@ parser.add_argument('--N', type=int, default=2048, help='Update frequency')
 parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training')
 parser.add_argument('--n_epochs', type=int, default=10, help='Number of epochs for training')
 parser.add_argument('--entropy_coeff', type=float, default=0.001, help='Entropy coefficient')
-parser.add_argument('--n_steps', type=int, default=200_000, help='Number of steps')
+parser.add_argument('--n_steps', type=int, default=1_000_000, help='Number of steps')
 parser.add_argument('--modelType', type=str, default="ly", help='Model type: ppo or ly')
-parser.add_argument('--env', type=str, default="Pendulum-v1", help='Environment name')
+parser.add_argument('--env', type=str, default="Bicycle-v1", help='Environment name')
 parser.add_argument('--seed', type=int, default=1, help='Random seed for reproducibility')
 parser.add_argument('--torch_deterministic', type=bool, default=True, help='Use deterministic mode for PyTorch')
 args = parser.parse_args()
@@ -100,7 +100,7 @@ while global_steps < total_steps:
     episode_num += 1
     reward_arr.append(episode_cost)
     avg_reward = np.mean(reward_arr[-100:])
-    step_arr.append(episode_steps)
+    step_arr.append(global_steps)
     
 
     if avg_reward > best_reward:
