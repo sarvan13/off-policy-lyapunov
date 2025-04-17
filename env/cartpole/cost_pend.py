@@ -108,7 +108,7 @@ class CustomInvertedPendulumEnv(MujocoEnv, utils.EzPickle):
             **kwargs
         )
         self.step_count = 0
-        self.max_step_per_episode = 250
+        self.max_step_per_episode = 1000
         self.truncated = False
 
 
@@ -124,7 +124,7 @@ class CustomInvertedPendulumEnv(MujocoEnv, utils.EzPickle):
         self.do_simulation(a, self.frame_skip)
         ob = self._get_obs()
         terminated = bool(not np.isfinite(ob).all() or (np.abs(ob[1]) > 0.35) or (np.abs(ob[0]) >= 10.0))
-        cost = (ob[0]/10.0)**2 + 20.0*(ob[1]/0.35)**2
+        # cost = (ob[0]/10.0)**2 + 20.0*(ob[1]/0.35)**2
 
         if self.render_mode == "human":
             self.render()
@@ -133,8 +133,10 @@ class CustomInvertedPendulumEnv(MujocoEnv, utils.EzPickle):
         if self.step_count >= self.max_step_per_episode:
             self.truncated = True
         
-        if terminated:
-            cost += 100.0
+        x_error = np.abs(ob[0]) *1e-1
+        # if terminated:
+        #     cost += 100.0
+        cost = 1 - x_error
 
         return ob, cost, terminated, self.truncated, {}
 
