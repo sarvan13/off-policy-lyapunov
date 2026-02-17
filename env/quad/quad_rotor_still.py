@@ -44,7 +44,7 @@ import copy
 _FLOAT_EPS = np.finfo(np.float64).eps
 _EPS4 = _FLOAT_EPS * 4.0
 
-class QuadRateEnv(mujoco_env.MujocoEnv, utils.EzPickle):
+class QuadStillEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     metadata = {
         "render_modes": [
             "human",

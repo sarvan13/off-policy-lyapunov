@@ -16,6 +16,7 @@ from stable_baselines3.common.buffers import ReplayBuffer
 from torch.utils.tensorboard import SummaryWriter
 
 from env.quad.quad_rotor_still import QuadStillEnv
+from env.quad import QuadRateEnv
 
 @dataclass
 class Args:

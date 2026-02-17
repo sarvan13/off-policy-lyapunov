@@ -4,6 +4,7 @@ import matplotlib
 matplotlib.use('Agg')
 import gymnasium as gym
 from env.quad import QuadRateEnv
+from env.quad import QuadStillEnv
 import numpy as np
 import matplotlib.pyplot as plt
 from stable_baselines3 import PPO
@@ -20,7 +21,7 @@ import multiprocessing
 # envs = SubprocVecEnv([lambda: make_env() for _ in range(n_envs)])
 
 # Create the environment
-env = gym.make("Quadrotor-v1")
+env = gym.make("Quadrotor-Still-v1")
 
 # Define a callback to log rewards and steps
 class RewardCallback(BaseCallback):
@@ -46,11 +47,11 @@ class RewardCallback(BaseCallback):
 reward_callback = RewardCallback()
 
 # Instantiate the PPO model
+policy_kwargs = dict(net_arch=dict(pi=[256,256], vf=[256,256]))
 model = PPO('MlpPolicy', env, n_steps=32*2048, learning_rate=2.5e-4, batch_size=256, ent_coef=0.001,  verbose=1)
 
 # Train the model
-num_episodes = 1000
-num_steps = 10_000_000
+num_steps = 20_000_000
 model.learn(total_timesteps=num_steps, callback=reward_callback)
 
 # Close the environment
@@ -65,8 +66,8 @@ plt.title("Training Rewards for PPO on Quadrotor-v1")
 plt.grid(True)
 
 # Save the plot to a file
-plt.savefig('ppo_traj_training_rewards.png')
+plt.savefig('ppo_still_training_rewards.png')
 
 # Save the rewards and steps to a file
-np.savez('ppo_traj_training_data.npz', rewards=reward_callback.episode_rewards, steps=reward_callback.steps)
-model.save("ppo_traj_quadrotor")
+np.savez('ppo_still_training_data.npz', rewards=reward_callback.episode_rewards, steps=reward_callback.steps)
+model.save("ppo_still_quadrotor")

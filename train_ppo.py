@@ -5,18 +5,18 @@ from env.quad import QuadStillEnv
 import time
 
 if __name__ == '__main__':
-    # env = gym.make('Quadrotor-Still-v1')
-    env = gym.make('Pendulum-v1')
-    N = 2048
-    batch_size = 64
+    env = gym.make('Quadrotor-Still-v1')
+    # env = gym.make('Pendulum-v1')
+    N = 32*2048
+    batch_size = 256
     n_epochs = 10
     alpha = 0.0003
     agent = PPOAgent(n_actions=env.action_space.shape[0], batch_size=batch_size, 
                     alpha=alpha, n_epochs=n_epochs,
                     input_dims=env.observation_space.shape[0],
                     max_action=env.action_space.high, update_freq=N,
-                    entropy_coeff=0.001, save_dir='data\\pendulum\\ppo')
-    n_steps = 400_000
+                    entropy_coeff=0.001, save_dir='data/quad/ppo')
+    n_steps = 10_000_000
     init_time = time.time()
     curr_time = time.time() - init_time
 
@@ -37,7 +37,7 @@ if __name__ == '__main__':
         while not done:
             action, prob, val = agent.choose_action(observation)
             clipped_action = np.clip(action, env.action_space.low, env.action_space.high)
-            observation_, reward, terminated, truncated, info = env.step(clipped_action)
+            observation_, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
             step += 1
             score += reward
@@ -57,7 +57,7 @@ if __name__ == '__main__':
 
         if verbose_flag:
             print('episode', ep_count, 'score %.1f' % score, 'avg score %.1f' % avg_score,
-                    'time_steps', step, 'learning_steps', learn_iters, 'std', agent.actor.log_std.exp().item(),'time', curr_time)
+                    'time_steps', step, 'learning_steps', learn_iters, 'time', curr_time)
             verbose_flag = False
         
         if avg_score > best_score:

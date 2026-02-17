@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 class KinematicBicycleEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30}
 
-    def __init__(self, render_mode=None, max_deviation=10.0):
+    def __init__(self, render_mode=None, max_deviation=5.0):
         super().__init__()
         
         # Vehicle parameters
@@ -94,6 +94,7 @@ class KinematicBicycleEnv(gym.Env):
 
     def step(self, action):
         accel, delta = np.clip(action, self.action_space.low, self.action_space.high)
+        action = np.array([accel, delta], dtype=np.float32)
         x, y, theta, v = self.state
         
         # Update state using kinematic bicycle model
@@ -123,15 +124,15 @@ class KinematicBicycleEnv(gym.Env):
 
         pos_error = np.sqrt(x_error**2 + y_error**2)
 
-        reward_alive = 1
+        reward_alive = 0.5
         reward = - (pos_error * 1e-1 + 1e-4 * np.sum(np.square(action))) + reward_alive
 
         # Termination condition
         terminated = np.linalg.norm([y_error, x_error]) > self.max_deviation
         truncated = self.current_step >= self.max_steps - 1
 
-        if terminated:
-            reward = -1000.0  # Large penalty for exceeding max deviation
+        # if terminated:
+        #     reward = -1000.0  # Large penalty for exceeding max deviation
 
         info = {
             'x': x,
@@ -148,7 +149,7 @@ class KinematicBicycleEnv(gym.Env):
         x, y, theta, v = state
         accel, delta = action
         
-        beta = np.atan((self.l/2 - self.lro)/self.lw * np.tan(delta))
+        beta = np.arctan((self.l/2 - self.lro)/self.lw * np.tan(delta))
         # Compute derivatives using kinematic bicycle model
         dx = v * np.cos(theta + beta)
         dy = v * np.sin(theta + beta)

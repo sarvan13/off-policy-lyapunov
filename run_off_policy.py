@@ -45,12 +45,12 @@ data_path = os.path.join(curr_dir, "data", env_name, modelType, "seed_" + str(ar
 os.makedirs(data_path, exist_ok=True)
 
 if modelType == "sac":
-    agent = SACAgent(env.observation_space.shape[0], env.action_space.shape[0], env.action_space.high, save_dir=data_path)
+    agent = SACAgent(env.observation_space.shape[0], env.action_space.shape[0], env.action_space.high, save_dir=data_path, gamma=0.9)
 elif modelType == "lsac":
     agent = LSACAgent(env.observation_space.shape[0], env.action_space.shape[0], env.action_space.high, 
-                        dt=env.unwrapped.dt, equilibrium_state=equilibrium_state, save_dir=data_path)    
+                        dt=env.unwrapped.dt, equilibrium_state=equilibrium_state, save_dir=data_path, gamma=0.9)    
 elif modelType == "lac":
-    agent = LAC(env.observation_space.shape[0], env.action_space.shape[0], env.action_space.high, alpha=0.1, save_dir=data_path)
+    agent = LAC(env.observation_space.shape[0], env.action_space.shape[0], env.action_space.high, alpha=0.1, save_dir=data_path, gamma=0.9)
 else:
     raise ValueError("Invalid model type")
 

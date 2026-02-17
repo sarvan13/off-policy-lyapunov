@@ -31,7 +31,7 @@ def train_inverted_pendulum(modelType):
     episode_count = 0
     max_steps = 5_000_000
     update_freq = 1000
-    grad_updates = 0.8*update_freq
+    grad_updates = 800
     num_updates = max_steps // update_freq
     ep_reward_arr = deque(maxlen=25)
 
