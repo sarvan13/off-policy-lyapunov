@@ -2,7 +2,7 @@
 #SBATCH --mem=32G
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=16
-#SBATCH --time=20:00:0
+#SBATCH --time=2:00:0
 #SBATCH --mail-user=sarvan13@uvic.ca
 #SBATCH --mail-type=ALL
 #SBATCH --account=def-danielac
@@ -15,5 +15,5 @@ module load python/3.10.13
 module load mujoco
 source ~/MujocoENV/bin/activate
 
-python run_off_policy.py --modelType lsac --env Pendulum-v1 --n_steps 1000000 --seed $SLURM_ARRAY_TASK_ID
+python run_off_policy.py --modelType lsac --env Pendulum-v1 --n_steps 100000 --seed $SLURM_ARRAY_TASK_ID
 
