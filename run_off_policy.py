@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import torch
 import numpy as np
 import os
+import sys
+import traceback
 import argparse
 import random
 
@@ -46,8 +48,11 @@ data_path = os.path.join(curr_dir, "data", env_name, modelType, "seed_" + str(ar
 try:
     data_path.mkdir(parents=True, exist_ok=True)
     print(f"Successfully verified directory: {data_path}")
-except OSError as e:
-    print(f"Error creating directory {data_path}: {e}")
+except Exception as e:
+    print("--- DEBUG: AN ERROR OCCURRED ---")
+    # This prints the full stack trace (the line numbers and call history)
+    traceback.print_exc() 
+    sys.stdout.flush()
 
 if modelType == "sac":
     agent = SACAgent(env.observation_space.shape[0], env.action_space.shape[0], env.action_space.high, save_dir=data_path, gamma=0.9)
@@ -102,7 +107,7 @@ while global_steps < total_steps:
     if avg_reward > best_reward:
         best_reward = avg_reward
         agent.save()
-        print(f"Best model saved at episode {episode_num} with average reward {avg_reward}")
+        print(f"Best model saved at {data_path}: episode {episode_num} with average reward {avg_reward}")
 
     if episode_num % 50 == 0:
         print(f"Episode {episode_num} - Cost: {episode_cost}, Average Cost: {avg_reward}, Steps: {episode_steps}, Avg Steps: {np.mean([step_arr[-100:]])}, Global Steps: {global_steps}")
