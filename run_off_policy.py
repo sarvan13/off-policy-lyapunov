@@ -42,7 +42,12 @@ else:
 
 curr_dir = os.path.dirname(os.path.abspath(__file__))
 data_path = os.path.join(curr_dir, "data", env_name, modelType, "seed_" + str(args.seed))
-os.makedirs(data_path, exist_ok=True)
+
+try:
+    data_path.mkdir(parents=True, exist_ok=True)
+    print(f"Successfully verified directory: {data_path}")
+except OSError as e:
+    print(f"Error creating directory {data_path}: {e}")
 
 if modelType == "sac":
     agent = SACAgent(env.observation_space.shape[0], env.action_space.shape[0], env.action_space.high, save_dir=data_path, gamma=0.9)
