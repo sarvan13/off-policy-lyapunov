@@ -3,8 +3,7 @@ import matplotlib.pyplot as plt
 import torch
 import numpy as np
 import os
-import sys
-import traceback
+import pathlib
 import argparse
 import random
 
@@ -42,17 +41,19 @@ if env_name == "Pendulum-v1":
 else:
     equilibrium_state = torch.zeros((1, env.observation_space.shape[0]), dtype=torch.float)
 
-curr_dir = os.path.dirname(os.path.abspath(__file__))
-data_path = os.path.join(curr_dir, "data", env_name, modelType, "seed_" + str(args.seed))
+# 1. Resolve the REAL physical path, bypassing the /home/... symlink
+# This ensures consistency between what you see in 'pwd' and what the OS sees
+script_dir = pathlib.Path(__file__).parent.resolve()
 
-try:
-    data_path.mkdir(parents=True, exist_ok=True)
-    print(f"Successfully verified directory: {data_path}")
-except Exception as e:
-    print("--- DEBUG: AN ERROR OCCURRED ---")
-    # This prints the full stack trace (the line numbers and call history)
-    traceback.print_exc() 
-    sys.stdout.flush()
+# 2. Construct the data path using the / symbol (pathlib magic)
+data_path = script_dir / "data" / env_name / modelType / f"seed_{args.seed}"
+
+# 3. Create the directory
+# parents=True ensures /data, /Pendulum-v1, etc. are all created if missing
+data_path.mkdir(parents=True, exist_ok=True)
+
+# 4. CRITICAL: Use the string version of the path for your logger/saving function
+final_path_str = str(data_path.absolute())
 
 if modelType == "sac":
     agent = SACAgent(env.observation_space.shape[0], env.action_space.shape[0], env.action_space.high, save_dir=data_path, gamma=0.9)
