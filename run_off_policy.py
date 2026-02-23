@@ -18,12 +18,14 @@ from env.bicycle.bicycle_model import KinematicBicycleEnv
 parser = argparse.ArgumentParser(description='Train SAC/LSAC with command line arguments')
 # parser.add_argument('--N', type=int, default=2048, help='Update frequency')
 parser.add_argument('--n_steps', type=int, default=1_000_000, help='Number of steps')
+parser.add_argument('--mu', type=float, default=0.1, help='Lyapunov regularization parameter')
 parser.add_argument('--modelType', type=str, default="sac", help='Model type: sac or lsac')
 parser.add_argument('--env', type=str, default="Bicycle-v1", help='Environment name')
 parser.add_argument('--seed', type=int, default=1, help='Random seed for reproducibility')
 parser.add_argument('--torch_deterministic', type=bool, default=True, help='Use deterministic mode for PyTorch')
 args = parser.parse_args()
 
+mu = args.mu
 total_steps = args.n_steps
 modelType = args.modelType
 env_name = args.env
@@ -45,8 +47,16 @@ else:
 # This ensures consistency between what you see in 'pwd' and what the OS sees
 script_dir = pathlib.Path(__file__).parent.resolve()
 
-# 2. Construct the data path using the / symbol (pathlib magic)
-data_path = script_dir / "data" / env_name / modelType / f"seed_{args.seed}"
+# 2. Construct the path: project/data/env/model/mu_value/seed_X
+# Using f"mu_{args.mu}" creates a clean folder name like "mu_0.01"
+data_path = (
+    script_dir / 
+    "data" / 
+    env_name / 
+    modelType / 
+    f"mu_{args.mu}" / 
+    f"seed_{args.seed}"
+)
 
 # 3. Create the directory
 # parents=True ensures /data, /Pendulum-v1, etc. are all created if missing
@@ -59,7 +69,7 @@ if modelType == "sac":
     agent = SACAgent(env.observation_space.shape[0], env.action_space.shape[0], env.action_space.high, save_dir=data_path, gamma=0.9)
 elif modelType == "lsac":
     agent = LSACAgent(env.observation_space.shape[0], env.action_space.shape[0], env.action_space.high, 
-                        dt=env.unwrapped.dt, equilibrium_state=equilibrium_state, save_dir=data_path, gamma=0.9)    
+                        dt=env.unwrapped.dt, equilibrium_state=equilibrium_state, save_dir=data_path, gamma=0.9, mu=mu)    
 elif modelType == "lac":
     agent = LAC(env.observation_space.shape[0], env.action_space.shape[0], env.action_space.high, alpha=0.1, save_dir=data_path, gamma=0.9)
 else:
