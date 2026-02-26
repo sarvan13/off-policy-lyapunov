@@ -10,14 +10,14 @@
 # --- NEW ARRAY RANGE: 40 tasks (0 to 39) ---
 #SBATCH --array=0-39
 
-cd ~/projects/def-danielac/sarvan13/off-policy-lyapunov
+cd ~/projects/def-danielac/sarvan13/thesis-lyapunov/off-policy-lyapunov
 module purge
 module load python/3.10.13
 module load mujoco
 source ~/MujocoENV/bin/activate
 
 # 1. Define your mu values in a bash array
-MU_VALUES=(0 0.01 0.1 1)
+MU_VALUES=(0.15 0.25 0.5 0.75)
 
 # 2. Logic to pick the index (0, 1, 2, or 3) and the seed
 # % is modulo, / is integer division
@@ -31,6 +31,6 @@ echo "Running Task $SLURM_ARRAY_TASK_ID: Mu=$MU, Seed=$SEED"
 python -u run_off_policy.py \
     --modelType lsac \
     --env Pendulum-v1 \
-    --n_steps 100000 \
+    --n_steps 1000000 \
     --seed $SEED \
     --mu $MU
