@@ -40,6 +40,18 @@ env = gym.make(env_name)
 
 if env_name == "Pendulum-v1":
     equilibrium_state = torch.tensor([np.array([np.cos(0), np.sin(0), 0])], dtype=torch.float)
+elif env_name == "InvertedDoublePendulum-v5":
+    equilibrium_state = torch.tensor([np.array([
+    0.0,  # x
+    0.0,  # sin(theta1)
+    0.0,  # sin(theta2)
+    1.0,  # cos(theta1)
+    1.0,  # cos(theta2)
+    0.0,  # x_dot
+    0.0,  # theta1_dot
+    0.0,  # theta2_dot
+    0.0   # constraint force
+])], dtype=torch.float)
 else:
     equilibrium_state = torch.zeros((1, env.observation_space.shape[0]), dtype=torch.float)
 
