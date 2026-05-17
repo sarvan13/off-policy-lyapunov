@@ -15,7 +15,7 @@ module load python/3.10.13
 module load mujoco
 source ~/MujocoENV/bin/activate
 
-MU_VALUES=(0.01 0.1 0.5 0.75)
+MU_VALUES=(0.85 1.1 1.25 1.5)
 
 MU_INDEX=$((SLURM_ARRAY_TASK_ID / 10))
 MU=${MU_VALUES[$MU_INDEX]}
