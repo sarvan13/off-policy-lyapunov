@@ -133,13 +133,17 @@ class ValueNet(nn.Module):
         self.load_state_dict(torch.load(self.save_path))
 
 class LyapunovNet(nn.Module):
-    def __init__(self, lr, state_dims, action_dims, fc1_dims=256, fc2_dims=256, name='lsac-pendulum-l.pth', save_dir='data\pendulum\models'):
+    # V(x) = (x-x*)^T P (x-x*) + ||v_θ(x) - v_θ(x*)||²
+
+    def __init__(self, lr, state_dims, action_dims, equilibrium, fc1_dims=256, fc2_dims=256, eps_pd=1e-2, name='lsac-pendulum-l.pth', save_dir='data\pendulum\models'):
         super(LyapunovNet, self).__init__()
         self.lr = lr
         self.state_dims = state_dims
         self.action_dims = action_dims
+        self.equilibrium = equilibrium
         self.fc1_dims = fc1_dims
         self.fc2_dims = fc2_dims
+        self.eps_pd = eps_pd
         self.name = name
         self.save_path = os.path.join(save_dir, name)
 
@@ -147,12 +151,32 @@ class LyapunovNet(nn.Module):
         self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
         self.q = nn.Linear(self.fc2_dims, 1)
 
+        #P = A^T A + eps_pd * I
+        self.A = nn.Parameter(torch.randn(self.state_dims, self.state_dims) * 0.1)
+
         self.optimizer = optim.Adam(self.parameters(), lr=self.lr)
         self.device = ('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.to(self.device)
 
-    def forward(self, state, action):
+    def forward(self, state, action, eq_action):
+        # V(x) = (x-x*)^T P (x-x*) + ||v_θ(x) - v_θ(x*)||²
+        # P = A^T A + eps_pd * I
         state_action = torch.cat([state, action], dim=1)
+        eq_state_action = torch.cat([self.equilibrium, eq_action], dim=1)
+
+        P = self.A.T @ self.A + self.eps_pd * torch.eye(self.state_dims, device=self.device, dtype=state.dtype)
+        deviation = state - self.equilibrium # (x-x*)
+        quadratic_term = torch.sum(deviation @ P * deviation, dim=1, keepdim=True) # (x-x*)^T P (x-x*)
+        
+        v_x = self.forward_nn(state, action)
+        v_eq = self.forward_nn(self.equilibrium, eq_action)
+        nn_term = torch.sum((v_x - v_eq)**2, dim=1, keepdim=True) # ||v_θ(x) - v_θ(x*)||²
+
+        return quadratic_term + nn_term
+    
+    def forward_nn(self, state, action):
+        state_action = torch.cat([state, action], dim=1)
+        
         layer1 = torch.relu(self.fc1(state_action))
         layer2 = torch.relu(self.fc2(layer1))
         q_value = self.q(layer2)

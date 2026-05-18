@@ -10,7 +10,7 @@
 # --- NEW ARRAY RANGE: 40 tasks (0 to 39) ---
 #SBATCH --array=0-9
 
-cd ~/projects/def-danielac/sarvan13/thesis-struct/off-policy-lyapunov
+cd ~/projects/def-danielac/sarvan13/thesis-reg/off-policy-lyapunov
 module purge
 module load python/3.10.13
 module load mujoco
@@ -23,6 +23,6 @@ echo "Running Task $SLURM_ARRAY_TASK_ID: Seed=$SEED"
 # 3. Pass the new mu parameter to your script
 python -u run_off_policy.py \
     --modelType lsac \
-    --env Pendulum-v1 \
+    --env InvertedDoublePendulum-v5 \
     --n_steps 1000000 \
     --seed $SEED

@@ -119,8 +119,9 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 class Lyapunov(nn.Module):
-    def __init__(self, input_dims, alpha, fc1_dims=64, fc2_dims=64):
+    def __init__(self, state_dims, action_dims, alpha, equilibrium, fc1_dims=64, fc2_dims=64):
         super(Lyapunov, self).__init__()
+        input_dims = state_dims + action_dims
         self.critic = nn.Sequential(
                 nn.Linear(input_dims, fc1_dims),
                 nn.ReLU(),
@@ -130,8 +131,28 @@ class Lyapunov(nn.Module):
         )
 
         self.optimizer = optim.Adam(self.parameters(), lr=alpha)
+        self.equilibrium = equilibrium
+        self.state_dims = state_dims
+        self.action_dims = action_dims
 
-    def forward(self, state, action):
+        self.A = nn.Parameter(torch.randn(self.state_dims, self.state_dims) * 0.1)
+
+
+    def forward(self, state, action, eq_action):
+        state_action = torch.cat([state, action], dim=1)
+        eq_state_action = torch.cat([self.equilibrium, eq_action], dim=1)
+
+        P = self.A.T @ self.A + self.eps_pd * torch.eye(self.state_dims, device=self.device, dtype=state.dtype)
+        deviation = state - self.equilibrium # (x-x*)
+        quadratic_term = torch.sum(deviation @ P * deviation, dim=1, keepdim=True) # (x-x*)^T P (x-x*)
+
+        v_x = self.forward_nn(state, action)
+        v_eq = self.forward_nn(self.equilibrium, eq_action)
+        nn_term = torch.sum((v_x - v_eq)**2, dim=1, keepdim=True) # ||v_θ(x) - v_θ(x*)||²
+
+        return quadratic_term + nn_term
+    
+    def forward_nn(self, state, action):
         state_action = torch.cat([state, action], dim=1)
         value = self.critic(state_action)
 
@@ -246,7 +267,7 @@ if __name__ == "__main__":
     agent = Agent(envs).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
-    lyapunov = Lyapunov(envs.single_observation_space.shape[0] + envs.single_action_space.shape[0], args.learning_rate).to(device)
+    lyapunov = Lyapunov(envs.single_observation_space.shape[0], envs.single_action_space.shape[0], args.learning_rate).to(device)
     dt = envs.envs[0].unwrapped.dt
 
     log_beta = nn.Parameter(torch.log(torch.tensor([args.lyapunov_weight], dtype=torch.float, device=device)))
@@ -404,11 +425,11 @@ if __name__ == "__main__":
                 mb_inds = b_inds[start:end]
 
 
-                l_vals = lyapunov.forward(b_obs[mb_inds], b_actions[mb_inds])
-                l_lie = (lyapunov.forward(b_next_obs[mb_inds], b_next_actions[mb_inds]) - l_vals) / dt
-                l_eq = lyapunov.forward(eq_obs, eq_action)
+                l_vals = lyapunov.forward(b_obs[mb_inds], b_actions[mb_inds], eq_action)
+                l_lie = (lyapunov.forward(b_next_obs[mb_inds], b_next_actions[mb_inds], eq_action) - l_vals) / dt
+                # l_eq = lyapunov.forward(eq_obs, eq_action)
 
-                l_loss = torch.max(torch.tensor(0), - l_vals).mean() + torch.max(torch.tensor(0), l_lie).mean() + l_eq**2 + args.mu*(l_vals - torch.sum(b_obs[mb_inds].pow(2), dim=1, keepdim=True)).pow(2).mean()
+                l_loss = torch.max(torch.tensor(0), l_lie).mean()
 
                 lyapunov.optimizer.zero_grad()
                 l_loss.backward()
@@ -446,7 +467,8 @@ if __name__ == "__main__":
                 next_actions, _, _ ,_ = agent.get_action_and_value(b_next_obs[mb_inds])
                 next_actions = next_actions.reshape((-1,) + envs.single_action_space.shape)
 
-                l_lie = lyapunov.forward(b_next_obs[mb_inds], next_actions) - lyapunov.forward(b_obs[mb_inds], b_actions[mb_inds])
+                eq_action = agent.actor_mean(eq_obs).detach()
+                l_lie = lyapunov.forward(b_next_obs[mb_inds], next_actions, eq_action) - lyapunov.forward(b_obs[mb_inds], b_actions[mb_inds], eq_action)
                 # mb_advantages = (1 - args.lyapunov_weight) * b_advantages[mb_inds] + args.lyapunov_weight * torch.min(torch.tensor(0), -(lyapunov.forward(b_next_obs[mb_inds], next_actions) - lyapunov.forward(b_obs[mb_inds], b_actions[mb_inds]).detach()) / dt + 0.1)
                 mb_advantages = b_advantages[mb_inds] + beta * torch.min(torch.tensor(0), -(l_lie.detach()) / dt)
                 

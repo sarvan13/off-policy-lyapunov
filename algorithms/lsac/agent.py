@@ -14,12 +14,12 @@ class LSACAgent():
         self.q = QNet(qlr, state_dims, action_dims, save_dir=save_dir)
         self.value = ValueNet(vlr, state_dims, save_dir=save_dir)
         self.value_target = ValueNet(vlr, state_dims, save_dir=save_dir)
-        self.lyapunov = LyapunovNet(llr, state_dims, action_dims, save_dir=save_dir)
+        self.equilibrium_state = equilibrium_state.to(self.actor.device)
+        self.lyapunov = LyapunovNet(llr, state_dims, action_dims, self.equilibrium_state, save_dir=save_dir)
         self.value_target.load_state_dict(self.value.state_dict())
         self.state_dims = state_dims
         self.action_dims = action_dims
         self.dt = dt
-        self.equilibrium_state = equilibrium_state.to(self.actor.device)
         # self.equilibrium_state = torch.tensor([np.array([np.cos(0), np.sin(0), 0])], dtype=torch.float).to(self.actor.device)
         # self.equilibrium_state = torch.zeros((1, state_dims), dtype=torch.float).to(self.actor.device)
 
@@ -87,12 +87,11 @@ class LSACAgent():
         next_actions, _ = self.actor.sample(next_states, False)
         eq_action, _ = self.actor.forward(self.equilibrium_state)
 
-        lyapunov_values = self.lyapunov(states, actions)
-        lie_derivative = (self.lyapunov(next_states, next_actions) - lyapunov_values)
-        equilibrium_lyapunov = self.lyapunov(self.equilibrium_state, eq_action)
+        lyapunov_values = self.lyapunov(states, actions, eq_action)
+        lie_derivative = (self.lyapunov(next_states, next_actions, eq_action) - lyapunov_values)
 
-        loss = torch.max(torch.tensor(0), -lyapunov_values).mean() + torch.max(torch.tensor(0), lie_derivative/self.dt).mean() + equilibrium_lyapunov**2 + self.mu*(lyapunov_values - torch.sum(states.pow(2), dim=1, keepdim=True)).pow(2).mean()
-
+        loss = torch.max(torch.tensor(0), lie_derivative/self.dt).mean()
+        
         self.lyapunov.optimizer.zero_grad()
         loss.backward()
         self.lyapunov.optimizer.step()
@@ -142,7 +141,7 @@ class LSACAgent():
 
         next_actions, _ = self.actor.sample(next_states, reparameterize=True)
         eq_action, _ = self.actor.forward(self.equilibrium_state)
-        org_lie_derivative = (self.lyapunov.forward(next_states, next_actions) - self.lyapunov.forward(states, actions))/self.dt
+        org_lie_derivative = (self.lyapunov.forward(next_states, next_actions, eq_action) - self.lyapunov.forward(states, actions, eq_action))/self.dt
         lie_derivative = org_lie_derivative
         # l_equi = self.lyapunov.forward(self.equilibrium_state, eq_action)
         lyapunov_error = self.beta*torch.max(torch.tensor(0), lie_derivative).mean() #+ l_equi**2
