@@ -10,7 +10,7 @@
 # --- NEW ARRAY RANGE: 40 tasks (0 to 39) ---
 #SBATCH --array=0-9
 
-cd ~/projects/def-danielac/sarvan13/thesis-reg/off-policy-lyapunov
+cd ~/projects/def-danielac/sarvan13/thesis-struct/off-policy-lyapunov
 module purge
 module load python/3.10.13
 module load mujoco
