@@ -119,7 +119,8 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 class Lyapunov(nn.Module):
-    def __init__(self, state_dims, action_dims, alpha, equilibrium, fc1_dims=64, fc2_dims=64):
+    def __init__(self, state_dims, action_dims, equilibrium, alpha, device, eps_pd=1e-2,
+fc1_dims=64, fc2_dims=64):
         super(Lyapunov, self).__init__()
         input_dims = state_dims + action_dims
         self.critic = nn.Sequential(
@@ -134,6 +135,8 @@ class Lyapunov(nn.Module):
         self.equilibrium = equilibrium
         self.state_dims = state_dims
         self.action_dims = action_dims
+        self.eps_pd = eps_pd
+        self.device = device
 
         self.A = nn.Parameter(torch.randn(self.state_dims, self.state_dims) * 0.1)
 
@@ -142,7 +145,7 @@ class Lyapunov(nn.Module):
         state_action = torch.cat([state, action], dim=1)
         eq_state_action = torch.cat([self.equilibrium, eq_action], dim=1)
 
-        P = self.A.T @ self.A + self.eps_pd * torch.eye(self.state_dims, device=self.device, dtype=state.dtype)
+        P = self.A.T @ self.A + self.eps_pd * torch.eye(self.state_dims, dtype=state.dtype, device=self.device)
         deviation = state - self.equilibrium # (x-x*)
         quadratic_term = torch.sum(deviation @ P * deviation, dim=1, keepdim=True) # (x-x*)^T P (x-x*)
 
@@ -267,7 +270,20 @@ if __name__ == "__main__":
     agent = Agent(envs).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
-    lyapunov = Lyapunov(envs.single_observation_space.shape[0], envs.single_action_space.shape[0], args.learning_rate).to(device)
+    env = envs.envs[0]
+    while isinstance(env, gym.Wrapper):
+        if isinstance(env, NormalizeObservation):
+            mean = env.obs_rms.mean
+            var = env.obs_rms.var
+            epsilon = env.epsilon
+            break
+        env = env.env
+    eq_obs_raw = np.zeros(envs.single_observation_space.shape[0])
+    eq_obs = (eq_obs_raw  - mean) / np.sqrt(var + epsilon)
+    eq_obs = torch.tensor(eq_obs, dtype=torch.float).to(device)
+    eq_obs = eq_obs.unsqueeze(0)
+
+    lyapunov = Lyapunov(envs.single_observation_space.shape[0], envs.single_action_space.shape[0], eq_obs, args.learning_rate, device).to(device)
     dt = envs.envs[0].unwrapped.dt
 
     log_beta = nn.Parameter(torch.log(torch.tensor([args.lyapunov_weight], dtype=torch.float, device=device)))
@@ -413,6 +429,7 @@ if __name__ == "__main__":
         eq_obs = (eq_obs_raw  - mean) / np.sqrt(var + epsilon)
         eq_obs = torch.tensor(eq_obs, dtype=torch.float).to(device)
         eq_obs = eq_obs.unsqueeze(0)
+        lyapunov.equilibrium = eq_obs
 
         eq_action = agent.actor_mean(eq_obs).detach()
 
