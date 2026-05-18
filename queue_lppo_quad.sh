@@ -9,7 +9,7 @@
 #SBATCH --gpus-per-node=1
 #SBATCH --array=0-39
 
-cd ~/projects/def-danielac/sarvan13/thesis-lyapunov/off-policy-lyapunov
+cd ~/projects/def-danielac/sarvan13/thesis-reg/off-policy-lyapunov
 module purge
 module load python/3.10.13
 module load mujoco
