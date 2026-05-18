@@ -10,14 +10,14 @@
 # --- NEW ARRAY RANGE: 40 tasks (0 to 39) ---
 #SBATCH --array=0-39
 
-cd ~/projects/def-danielac/sarvan13/thesis-lyapunov/off-policy-lyapunov
+cd ~/projects/def-danielac/sarvan13/thesis-reg/off-policy-lyapunov
 module purge
 module load python/3.10.13
 module load mujoco
 source ~/MujocoENV/bin/activate
 
 # 1. Define your mu values in a bash array
-MU_VALUES=(0.15 0.25 0.5 0.75)
+MU_VALUES=(0.0001 0.0005 0.001 0.005 0.01)
 
 # 2. Logic to pick the index (0, 1, 2, or 3) and the seed
 # % is modulo, / is integer division

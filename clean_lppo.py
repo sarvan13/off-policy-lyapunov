@@ -408,7 +408,7 @@ if __name__ == "__main__":
                 l_lie = (lyapunov.forward(b_next_obs[mb_inds], b_next_actions[mb_inds]) - l_vals) / dt
                 l_eq = lyapunov.forward(eq_obs, eq_action)
 
-                l_loss = torch.max(torch.tensor(0), - l_vals).mean() + torch.max(torch.tensor(0), l_lie + args.mu).mean() + l_eq**2
+                l_loss = torch.max(torch.tensor(0), - l_vals).mean() + torch.max(torch.tensor(0), l_lie).mean() + l_eq**2 + args.mu*(l_vals - torch.sum(b_obs[mb_inds].pow(2), dim=1, keepdim=True)).pow(2).mean()
 
                 lyapunov.optimizer.zero_grad()
                 l_loss.backward()
@@ -448,7 +448,7 @@ if __name__ == "__main__":
 
                 l_lie = lyapunov.forward(b_next_obs[mb_inds], next_actions) - lyapunov.forward(b_obs[mb_inds], b_actions[mb_inds])
                 # mb_advantages = (1 - args.lyapunov_weight) * b_advantages[mb_inds] + args.lyapunov_weight * torch.min(torch.tensor(0), -(lyapunov.forward(b_next_obs[mb_inds], next_actions) - lyapunov.forward(b_obs[mb_inds], b_actions[mb_inds]).detach()) / dt + 0.1)
-                mb_advantages = b_advantages[mb_inds] + beta * torch.min(torch.tensor(0), -(l_lie.detach()) / dt + args.mu)
+                mb_advantages = b_advantages[mb_inds] + beta * torch.min(torch.tensor(0), -(l_lie.detach()) / dt)
                 
                 
                 if args.norm_adv:

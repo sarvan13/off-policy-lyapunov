@@ -9,7 +9,7 @@ import random
 
 class LSACAgent():
     def __init__(self, state_dims, action_dims, max_action, dt, equilibrium_state, alr=1e-4, qlr=3e-4, vlr=3e-4, llr=3e-4, clr=3e-4, elr=3e-4, batch_size=256,
-                 rewards_scale = 1, alpha = 0.2, mu=0.1, gamma=1, tau=0.005, mem_length=1e5, save_dir="data/pendulum/lsac"):
+                 rewards_scale = 1, alpha = 0.2, mu=0.01, gamma=1, tau=0.005, mem_length=1e5, save_dir="data/pendulum/lsac"):
         self.actor = ActorNet(alr,state_dims, action_dims, max_action, save_dir=save_dir)
         self.q = QNet(qlr, state_dims, action_dims, save_dir=save_dir)
         self.value = ValueNet(vlr, state_dims, save_dir=save_dir)
@@ -91,7 +91,7 @@ class LSACAgent():
         lie_derivative = (self.lyapunov(next_states, next_actions) - lyapunov_values)
         equilibrium_lyapunov = self.lyapunov(self.equilibrium_state, eq_action)
 
-        loss = torch.max(torch.tensor(0), -lyapunov_values).mean() + torch.max(torch.tensor(0), lie_derivative/self.dt + self.mu).mean() + equilibrium_lyapunov**2
+        loss = torch.max(torch.tensor(0), -lyapunov_values).mean() + torch.max(torch.tensor(0), lie_derivative/self.dt).mean() + equilibrium_lyapunov**2 + self.mu*(lyapunov_values - torch.sum(states.pow(2), dim=1, keepdim=True)).pow(2).mean()
 
         self.lyapunov.optimizer.zero_grad()
         loss.backward()
@@ -143,7 +143,7 @@ class LSACAgent():
         next_actions, _ = self.actor.sample(next_states, reparameterize=True)
         eq_action, _ = self.actor.forward(self.equilibrium_state)
         org_lie_derivative = (self.lyapunov.forward(next_states, next_actions) - self.lyapunov.forward(states, actions))/self.dt
-        lie_derivative = org_lie_derivative + self.mu
+        lie_derivative = org_lie_derivative
         # l_equi = self.lyapunov.forward(self.equilibrium_state, eq_action)
         lyapunov_error = self.beta*torch.max(torch.tensor(0), lie_derivative).mean() #+ l_equi**2
         
