@@ -65,7 +65,8 @@ data_path = (
     script_dir / 
     "data" / 
     env_name / 
-    modelType / 
+    modelType /
+    "beta_1" /
     f"mu_{args.mu}" / 
     f"seed_{args.seed}"
 )

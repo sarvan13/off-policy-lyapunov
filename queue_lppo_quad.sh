@@ -7,7 +7,7 @@
 #SBATCH --mail-type=ALL
 #SBATCH --account=def-danielac
 #SBATCH --gpus-per-node=1
-#SBATCH --array=0-39
+#SBATCH --array=0-9
 
 cd ~/projects/def-danielac/sarvan13/thesis-reg/off-policy-lyapunov
 module purge
@@ -15,7 +15,7 @@ module load python/3.10.13
 module load mujoco
 source ~/MujocoENV/bin/activate
 
-MU_VALUES=(0.0001 0.0005 0.001 0.005 0.01)
+MU_VALUES=(0.001 0.005 0.0001 0.0005 0.05)
 
 MU_INDEX=$((SLURM_ARRAY_TASK_ID / 10))
 MU=${MU_VALUES[$MU_INDEX]}

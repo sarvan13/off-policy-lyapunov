@@ -80,7 +80,7 @@ class Args:
     """the maximum norm for the gradient clipping"""
     target_kl: float = None
     """the target KL divergence threshold"""
-    lyapunov_weight: float = 10.0
+    lyapunov_weight: float = 1.0
     """Beta value of Lyapunov Lagrange Multiplier"""
     mu: float = 0.1
     """Minimum rate of Lyapunov decrease"""
@@ -226,7 +226,7 @@ if __name__ == "__main__":
     )
 
     curr_dir = os.path.dirname(os.path.abspath(__file__))
-    data_path = os.path.join(curr_dir, "data", args.env_id, "clean_lppo", f"mu_{args.mu}", "seed_" + str(args.seed))
+    data_path = os.path.join(curr_dir, "data", args.env_id, "clean_lppo", f"beta_{args.lyapunov_weight}", f"mu_{args.mu}", "seed_" + str(args.seed))
     os.makedirs(data_path, exist_ok=True)
 
     # TRY NOT TO MODIFY: seeding

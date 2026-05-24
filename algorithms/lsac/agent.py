@@ -34,7 +34,7 @@ class LSACAgent():
         self.mu = mu
         self.rewards_scale = rewards_scale
 
-        beta = torch.tensor([10.0]).to(self.actor.device)
+        beta = torch.tensor([1.0]).to(self.actor.device)
         self.log_beta = nn.Parameter(torch.tensor(torch.log(beta)))
         self.beta_optimizer = optim.Adam([self.log_beta], lr=clr)
         self.beta = torch.exp(self.log_beta.detach())
