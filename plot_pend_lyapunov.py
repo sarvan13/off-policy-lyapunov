@@ -8,7 +8,7 @@ import torch
 import os
 
 curr_dir = os.path.dirname(os.path.abspath(__file__))
-lsac_dir = os.path.join(curr_dir, "data", "Pendulum-v1", "lsac", "seed_12")
+lsac_dir = r"C:\Users\Sarvan\Desktop\School\UVIC\thesis\off-policy-lyapunov\data\reg\Pendulum-v1\beta1\mu_0.0005\seed_12"
 
 env = gym.make('Pendulum-v1')
 agent = LSACAgent(state_dims=env.observation_space.shape[0], action_dims=env.action_space.shape[0],
@@ -20,21 +20,21 @@ def plot3D(agent):
     with torch.no_grad():
         agent.load()
         theta_arr = np.linspace(-np.pi, np.pi, 100)
-        theta_dot_arr = np.linspace(-7, 7, 100)
+        theta_dot_arr = np.linspace(-4, 4, 100)
 
         theta_grid, theta_dot_grid = np.meshgrid(theta_arr, theta_dot_arr)
         lyapunov_vals = np.zeros_like(theta_grid)
 
         eq_state = agent.equilibrium_state
         eq_action, _ = agent.actor.forward(eq_state)
-        equilibrium_lyapunov = agent.lyapunov.forward(eq_state, eq_action)
+        equilibrium_lyapunov = agent.lyapunov.forward(eq_state, eq_action, eq_action)
         print(equilibrium_lyapunov)
 
         for i, theta in enumerate(theta_arr):
             for j, theta_dot in enumerate(theta_dot_arr):
                 state = np.array([np.cos(theta), np.sin(theta), theta_dot])
                 action, _ = agent.actor.forward(torch.tensor([state], dtype=torch.float).to(agent.actor.device))
-                lyapunov_val = agent.lyapunov(torch.tensor([state], dtype=torch.float).to(agent.actor.device), action)
+                lyapunov_val = agent.lyapunov(torch.tensor([state], dtype=torch.float).to(agent.actor.device), action, eq_action)
                 lyapunov_vals[j, i] += lyapunov_val.item()
 
         # Create a 3D plot
@@ -45,7 +45,7 @@ def plot3D(agent):
         ax.set_xlabel('Theta')
         ax.set_ylabel('Theta Dot')
         ax.set_zlabel('Lyapunov Value')
-        ax.set_title('LSAC Lyapunov Function')
+        # ax.set_title('LSAC Lyapunov Function')
 
         plt.show()
 
@@ -101,4 +101,4 @@ def plot2D(agent):
         plt.show()
 
 
-plot2D(agent)
+plot3D(agent)

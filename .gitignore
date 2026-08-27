@@ -171,3 +171,9 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+*.npz
+*.npy
+*.zip
+*.png
+Pendulum-v1/*

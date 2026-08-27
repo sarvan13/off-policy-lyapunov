@@ -135,17 +135,17 @@ ppo_std_rewards = moving_average(ppo_std_rewards, window_size=50)
 plt.figure(figsize=(10, 6))
 
 # LPPO
-# plt.plot(lppo_bin_centers, lppo_mean_rewards, label="$\mu=0.0$", color="blue")
-# plt.fill_between(lppo_bin_centers, 
-#                  np.array(lppo_mean_rewards) - np.array(lppo_std_rewards), 
-#                  np.array(lppo_mean_rewards) + np.array(lppo_std_rewards), 
-#                  color="blue", alpha=0.2)
+plt.plot(lppo_bin_centers, lppo_mean_rewards, label="$\mu=0.0$", color="blue")
+plt.fill_between(lppo_bin_centers, 
+                 np.array(lppo_mean_rewards) - np.array(lppo_std_rewards), 
+                 np.array(lppo_mean_rewards) + np.array(lppo_std_rewards), 
+                 color="blue", alpha=0.2)
 
-# plt.plot(lppo_bin_centers_01, lppo_mean_rewards_01, label="$\mu=0.1$", color="green")
-# plt.fill_between(lppo_bin_centers_01, 
-#                  np.array(lppo_mean_rewards_01) - np.array(lppo_std_rewards_01), 
-#                  np.array(lppo_mean_rewards_01) + np.array(lppo_std_rewards_01), 
-#                  color="green", alpha=0.2)
+plt.plot(lppo_bin_centers_01, lppo_mean_rewards_01, label="$\mu=0.1$", color="green")
+plt.fill_between(lppo_bin_centers_01, 
+                 np.array(lppo_mean_rewards_01) - np.array(lppo_std_rewards_01), 
+                 np.array(lppo_mean_rewards_01) + np.array(lppo_std_rewards_01), 
+                 color="green", alpha=0.2)
 
 # plt.plot(lppo_bin_centers_001, lppo_mean_rewards_001, label="$\mu=0.01$", color="red")
 # plt.fill_between(lppo_bin_centers_001, 
@@ -153,11 +153,11 @@ plt.figure(figsize=(10, 6))
 #                  np.array(lppo_mean_rewards_001) + np.array(lppo_std_rewards_001), 
 #                  color="red", alpha=0.2)
 
-# plt.plot(lppo_bin_centers_05, lppo_mean_rewards_05, label="$\mu=0.5$", color="orange")
-# plt.fill_between(lppo_bin_centers_05, 
-#                  np.array(lppo_mean_rewards_05) - np.array(lppo_std_rewards_05), 
-#                  np.array(lppo_mean_rewards_05) + np.array(lppo_std_rewards_05), 
-#                  color="orange", alpha=0.2)
+plt.plot(lppo_bin_centers_05, lppo_mean_rewards_05, label="$\mu=0.5$", color="orange")
+plt.fill_between(lppo_bin_centers_05, 
+                 np.array(lppo_mean_rewards_05) - np.array(lppo_std_rewards_05), 
+                 np.array(lppo_mean_rewards_05) + np.array(lppo_std_rewards_05), 
+                 color="orange", alpha=0.2)
 
 plt.plot(lppo_bin_centers_075, lppo_mean_rewards_075, label="$\mu=0.75$", color="purple")
 plt.fill_between(lppo_bin_centers_075,
@@ -171,11 +171,11 @@ plt.fill_between(lppo_bin_centers_075,
 #                     np.array(lppo_mean_rewards_085) + np.array(lppo_std_rewards_085),
 #                     color="brown", alpha=0.2)
 
-# plt.plot(lppo_bin_centers_1, lppo_mean_rewards_1, label="$\mu=1.0$", color="pink")
-# plt.fill_between(lppo_bin_centers_1,
-#                     np.array(lppo_mean_rewards_1) - np.array(lppo_std_rewards_1),
-#                     np.array(lppo_mean_rewards_1) + np.array(lppo_std_rewards_1),
-#                     color="pink", alpha=0.2)
+plt.plot(lppo_bin_centers_1, lppo_mean_rewards_1, label="$\mu=1.0$", color="pink")
+plt.fill_between(lppo_bin_centers_1,
+                    np.array(lppo_mean_rewards_1) - np.array(lppo_std_rewards_1),
+                    np.array(lppo_mean_rewards_1) + np.array(lppo_std_rewards_1),
+                    color="pink", alpha=0.2)
 
 # plt.plot(lppo_bin_centers_1_1, lppo_mean_rewards_1_1, label="$\mu=1.1$", color="gray")
 # plt.fill_between(lppo_bin_centers_1_1,
@@ -189,23 +189,23 @@ plt.fill_between(lppo_bin_centers_075,
 #                     np.array(lppo_mean_rewards_1_5) + np.array(lppo_std_rewards_1_5),
 #                     color="olive", alpha=0.2)
 
-plt.plot(ly_bin_centers, ly_mean_rewards, label="LY", color="cyan")
-plt.fill_between(ly_bin_centers,
-                    np.array(ly_mean_rewards) - np.array(ly_std_rewards),
-                    np.array(ly_mean_rewards) + np.array(ly_std_rewards),
-                    color="cyan", alpha=0.2)
+# plt.plot(ly_bin_centers, ly_mean_rewards, label="LY", color="cyan")
+# plt.fill_between(ly_bin_centers,
+#                     np.array(ly_mean_rewards) - np.array(ly_std_rewards),
+#                     np.array(ly_mean_rewards) + np.array(ly_std_rewards),
+#                     color="cyan", alpha=0.2)
 
-plt.plot(ppo_bin_centers, ppo_mean_rewards, label="PPO", color="magenta")
-plt.fill_between(ppo_bin_centers,
-                    np.array(ppo_mean_rewards) - np.array(ppo_std_rewards),
-                    np.array(ppo_mean_rewards) + np.array(ppo_std_rewards),
-                    color="magenta", alpha=0.2)
+# plt.plot(ppo_bin_centers, ppo_mean_rewards, label="PPO", color="magenta")
+# plt.fill_between(ppo_bin_centers,
+#                     np.array(ppo_mean_rewards) - np.array(ppo_std_rewards),
+#                     np.array(ppo_mean_rewards) + np.array(ppo_std_rewards),
+#                     color="magenta", alpha=0.2)
 
 
 # Add labels, title, and legend
 plt.xlabel("Steps")
 plt.ylabel("Reward")
-plt.title("Quadrotor Rewards")
+plt.title("LPPO Quadrotor Rewards Min Descent")
 plt.legend()
 plt.grid(True)
 
