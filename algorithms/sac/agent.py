@@ -8,9 +8,10 @@ import random
 
 class SACAgent():
     def __init__(self, state_dims, action_dims, max_action, alr=1e-4, qlr=3e-4, vlr=3e-4, elr=3e-4, batch_size=256,
-                 rewards_scale = 2, alpha = 0.2, gamma=1, tau=0.005, mem_length=1e5, save_dir='data/sac/models', name_root='sac-quad'):
+                 rewards_scale = 2, alpha = 0.2, gamma=0.99, tau=0.005, mem_length=1e5, save_dir='data/sac/models', name_root='sac-quad'):
         self.actor = ActorNet(alr,state_dims, action_dims, max_action, save_dir=save_dir, name=name_root + '-actor.pth')
-        self.q = QNet(qlr, state_dims, action_dims, save_dir=save_dir, name=name_root + '-q.pth')
+        self.q1 = QNet(qlr, state_dims, action_dims, save_dir=save_dir, name=name_root + '-q1.pth')
+        self.q2 = QNet(qlr, state-dims, action_dims, save_dir=save_dir, name=name_root + '-q2.pth')
         self.value = ValueNet(vlr, state_dims, save_dir=save_dir, name=name_root + '-value.pth')
         self.value_target = ValueNet(vlr, state_dims, save_dir=save_dir, name=name_root + '-vtarg.pth')
         self.value_target.load_state_dict(self.value.state_dict())
@@ -75,13 +76,17 @@ class SACAgent():
         entropy_loss.backward()
         self.entropy_optim.step()
 
+        # Get the minimum Q value
+        q1_vals = self.q1.forward(states,sampled_actions).view(-1)
+        q2_vals = self.q2.forward(states,sampled_actions).view(-1)
+        min_q = torch.min(q1_vals, q2_vals)
+
         # Train Value Network
         # error = V(s) - E(Q(s,a) - log(pi(a|s)))
         self.value.optimizer.zero_grad()
         v = self.value.forward(states).view(-1)
         # sampled_actions, log_probs = self.actor.sample(states, reparameterize=False)
-        q_v = self.q.forward(states, sampled_actions).view(-1)
-        target_v = q_v - log_probs.view(-1)
+        target_v = min_q - entropy_coeff*log_probs.view(-1)
         v_loss = 0.5*self.loss(v, target_v.detach())
         v_loss.backward()
         self.value.optimizer.step()
@@ -90,22 +95,29 @@ class SACAgent():
         # error = log(pi(a|s)) - q(s,a)
         self.actor.optimizer.zero_grad()
         sampled_actions, log_probs = self.actor.sample(states, reparameterize=True)
-        q_actor = self.q.forward(states, sampled_actions).view(-1)
-        actor_loss = (entropy_coeff*(log_probs.view(-1) + self.entropy_target) - q_actor).mean()
+        q1_vals = self.q1.forward(states,sampled_actions).view(-1)
+        q2_vals = self.q2.forward(states,sampled_actions).view(-1)
+        min_q = torch.min(q1_vals, q2_vals)
+        actor_loss = (entropy_coeff*(log_probs.view(-1) + self.entropy_target) - min_q).mean()
         actor_loss.backward()
         self.actor.optimizer.step()
 
         # Train Q Network
         # error = Q(s,a) - (r(s,a) + gamma* E(V'(s)))
-        self.q.optimizer.zero_grad()
-        q = self.q.forward(states, actions).view(-1)
+        self.q1.optimizer.zero_grad()
+        self.q2.optimizer.zero_grad()
+        q1_vals = self.q1.forward(states, actions).view(-1)
+        q2_vals = self.q2.forward(states, actions).view(-1)
         next_value = self.value_target.forward(next_states).view(-1)
         next_value = (1 - dones).view(-1) * next_value
         q_target = self.rewards_scale*rewards.view(-1) + self.gamma * next_value
-        q_loss = 0.5*self.loss(q,q_target.detach())
+        q1_loss = 0.5*self.loss(q1_vals,q_target.detach())
+        q2_loss = 0.5*self.loss(q2_vals,q_target.detach())
 
-        q_loss.backward()
-        self.q.optimizer.step()
+        q1_loss.backward()
+        self.q1.optimizer.step()
+        q2_loss.backward()
+        self.q2.optimizer.step()
 
         # Update V Target Network
         # Update the target value network
