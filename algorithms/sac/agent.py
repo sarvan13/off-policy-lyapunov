@@ -8,10 +8,10 @@ import random
 
 class SACAgent():
     def __init__(self, state_dims, action_dims, max_action, alr=1e-4, qlr=3e-4, vlr=3e-4, elr=3e-4, batch_size=256,
-                 rewards_scale = 2, alpha = 0.2, gamma=0.99, tau=0.005, mem_length=1e5, save_dir='data/sac/models', name_root='sac-quad'):
+                 rewards_scale = 1, alpha = 0.2, gamma=0.99, tau=0.005, mem_length=1e5, save_dir='data/sac/models', name_root='sac-quad'):
         self.actor = ActorNet(alr,state_dims, action_dims, max_action, save_dir=save_dir, name=name_root + '-actor.pth')
         self.q1 = QNet(qlr, state_dims, action_dims, save_dir=save_dir, name=name_root + '-q1.pth')
-        self.q2 = QNet(qlr, state-dims, action_dims, save_dir=save_dir, name=name_root + '-q2.pth')
+        self.q2 = QNet(qlr, state_dims, action_dims, save_dir=save_dir, name=name_root + '-q2.pth')
         self.value = ValueNet(vlr, state_dims, save_dir=save_dir, name=name_root + '-value.pth')
         self.value_target = ValueNet(vlr, state_dims, save_dir=save_dir, name=name_root + '-vtarg.pth')
         self.value_target.load_state_dict(self.value.state_dict())
@@ -36,12 +36,14 @@ class SACAgent():
         self.actor.save()
         self.value.save()
         self.value_target.save()
-        self.q.save()
+        self.q1.save()
+        self.q2.save()
     def load(self):
         self.actor.load()
         self.value.load()
         self.value_target.load()
-        self.q.load()
+        self.q1.load()
+        self.q2.load()
 
     def remember(self, data_point):
         self.replay_buffer.append(data_point)
